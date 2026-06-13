@@ -57,6 +57,7 @@ flutter:
   # Hier fügst du dein Bild hinzu:
   assets:
     - assets/hintergrund.jpg
+    - assets/map_1.png
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

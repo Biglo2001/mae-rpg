@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'screens/map_screen.dart';
 
 void main() {
   runApp(const ChatBotApp());
@@ -266,7 +267,11 @@ Padding(
         title: Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 22, fontFamily: 'Serif', fontWeight: FontWeight.w600)),
         onTap: () {
           Navigator.pop(context);
-          Navigator.push(context, MaterialPageRoute(builder: (context) => GameMenuDetailScreen(title: title)));
+          if (title == "Karte") {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
+          } else {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => GameMenuDetailScreen(title: title)));
+          }
         },
       ),
     );
