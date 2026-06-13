@@ -259,13 +259,16 @@ Padding(
   }
 
   Widget _buildDrawerItem(IconData icon, String title) {
-    return ListTile(
-      leading: Icon(icon, color: const Color(0xFF8A6421)),
-      title: Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 22, fontFamily: 'Serif', fontWeight: FontWeight.w600)),
-      onTap: () {
-        Navigator.pop(context);
-        Navigator.push(context, MaterialPageRoute(builder: (context) => GameMenuDetailScreen(title: title)));
-      },
+    return Material(
+      color: Colors.transparent, // keep the drawer background visible
+      child: ListTile(
+        leading: Icon(icon, color: const Color(0xFF8A6421)),
+        title: Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 22, fontFamily: 'Serif', fontWeight: FontWeight.w600)),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context, MaterialPageRoute(builder: (context) => GameMenuDetailScreen(title: title)));
+        },
+      ),
     );
   }
 
