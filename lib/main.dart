@@ -19,44 +19,221 @@ class ChatBotApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF1E140A),
         primaryColor: const Color(0xFFC5A059),
       ),
-      home: const ChatScreen(),
+      home: const StartScreen(),
     );
   }
 }
 
-// --- PLATZHALTER FÜR DIE NEUEN FENSTER ---
+// --- DATEN MODELLE ---
 
-class GameMenuDetailScreen extends StatelessWidget {
-  final String title;
-  const GameMenuDetailScreen({super.key, required this.title});
+class ChatMessage {
+  final String text;
+  final bool isUser;
+  ChatMessage({required this.text, required this.isUser});
+}
+
+class GameSettings {
+  final String charName;
+  final String gender;
+  final String difficulty;
+  final String setting;
+  final bool usePredefinedAdventure;
+
+  GameSettings({
+    required this.charName,
+    required this.gender,
+    required this.difficulty,
+    required this.setting,
+    this.usePredefinedAdventure = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        "char_name": charName,
+        "gender": gender,
+        "difficulty": difficulty,
+        "setting": setting,
+        "adventure_type": usePredefinedAdventure ? "Vorgegeben" : "Prozedural",
+      };
+}
+
+class InventoryItem {
+  final String name;
+  final String description;
+  final int quantity;
+  final IconData icon;
+  final Color iconColor;
+
+  InventoryItem({
+    required this.name,
+    required this.description,
+    required this.quantity,
+    required this.icon,
+    required this.iconColor,
+  });
+}
+
+// --- STARTBILDSCHIRM ---
+
+class StartScreen extends StatelessWidget {
+  const StartScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund.jpg', fit: BoxFit.cover)),
-          Container(color: Colors.black.withOpacity(0.6)),
+          Positioned.fill(
+            child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover),
+          ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.4)),
+          ),
           Center(
-            child: Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4EAD4),
-                border: Border.all(color: const Color(0xFF8A6421), width: 4),
-                borderRadius: BorderRadius.circular(20),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Chroniken der\nSchattenwelt",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFC5A059),
+                    fontSize: 42,
+                    fontWeight: FontWeight.bold,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 8, offset: Offset(2, 2))],
+                  ),
+                ),
+                const SizedBox(height: 60),
+                _buildMenuButton(
+                  text: "Spiel Laden",
+                  onTap: () {
+                    final defaultSettings = GameSettings(
+                      charName: "Unbekannter Wanderer",
+                      gender: "Divers",
+                      difficulty: "Mittel",
+                      setting: "Mittelalter",
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => ChatScreen(settings: defaultSettings)),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                _buildMenuButton(
+                  text: "Spiel Erstellen",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SetupScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuButton({required String text, required VoidCallback onTap}) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF8A6421).withOpacity(0.9),
+        foregroundColor: const Color(0xFFF4EAD4),
+        minimumSize: const Size(250, 55),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Color(0xFFC5A059), width: 2),
+        ),
+        elevation: 8,
+      ),
+      onPressed: onTap,
+      child: Text(text, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+    );
+  }
+}
+
+// --- SETUP SCREEN (CHARAKTERERSTELLUNG) ---
+
+class SetupScreen extends StatefulWidget {
+  const SetupScreen({super.key});
+
+  @override
+  State<SetupScreen> createState() => _SetupScreenState();
+}
+
+class _SetupScreenState extends State<SetupScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  String _selectedGender = 'Männlich';
+  String _selectedDifficulty = 'Mittel';
+  String _selectedSetting = 'Mittelalter';
+  bool _isPredefined = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start, // HIER KORRIGIERT
                 children: [
-                  Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 32, fontFamily: 'Serif', fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
-                  const Text("Diese Chronik wird noch geschrieben...", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontStyle: FontStyle.italic)),
-                  const SizedBox(height: 30),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421)),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFFC5A059), size: 30),
                     onPressed: () => Navigator.pop(context),
-                    child: const Text("Zurück"),
-                  )
+                  ),
+                  const SizedBox(height: 10),
+                  const Text("CHARAKTER-SCHMIEDE",
+                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 32, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 30),
+                  _buildLabel("Wie heißt dein Charakter?"),
+                  _buildTextField(_nameController, "Euer Name..."),
+                  const SizedBox(height: 20),
+                  _buildLabel("Geschlecht"),
+                  _buildDropdown(['Männlich', 'Weiblich', 'Divers'], _selectedGender, (v) => setState(() => _selectedGender = v!)),
+                  const SizedBox(height: 20),
+                  _buildLabel("Schwierigkeit"),
+                  _buildDropdown(['Leicht', 'Mittel', 'Schwer'], _selectedDifficulty, (v) => setState(() => _selectedDifficulty = v!)),
+                  const SizedBox(height: 20),
+                  _buildLabel("Welt-Setting"),
+                  _buildDropdown(['Mittelalter', 'Sci-Fi', 'Piraten'], _selectedSetting, (v) => setState(() => _selectedSetting = v!)),
+                  const SizedBox(height: 30),
+                  Row(
+                    children: [
+                      Checkbox(value: _isPredefined, onChanged: (v) => setState(() => _isPredefined = v!), activeColor: const Color(0xFF8A6421)),
+                      const Expanded(child: Text("Ein vorgegebenes Abenteuer spielen?", style: TextStyle(color: Color(0xFFF4EAD4), fontSize: 16))),
+                    ],
+                  ),
+                  const SizedBox(height: 40),
+                  Center(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8A6421),
+                        foregroundColor: const Color(0xFFF4EAD4),
+                        minimumSize: const Size(200, 60),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFFC5A059), width: 2),
+                        ),
+                      ),
+                      onPressed: () {
+                        final settings = GameSettings(
+                          charName: _nameController.text.isEmpty ? "Namenloser" : _nameController.text,
+                          gender: _selectedGender,
+                          difficulty: _selectedDifficulty,
+                          setting: _selectedSetting,
+                          usePredefinedAdventure: _isPredefined,
+                        );
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
+                      },
+                      child: const Text("Abenteuer Beginnen", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -65,12 +242,33 @@ class GameMenuDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(color: Color(0xFFC5A059), fontSize: 18, fontWeight: FontWeight.w600)));
+  Widget _buildTextField(TextEditingController controller, String hint) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(color: const Color(0xFFF4EAD4), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF8A6421), width: 2)),
+        child: TextField(controller: controller, decoration: InputDecoration(hintText: hint, border: InputBorder.none), style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18)),
+      );
+  Widget _buildDropdown(List<String> items, String current, Function(String?) onChanged) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(color: const Color(0xFFF4EAD4), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF8A6421), width: 2)),
+        child: DropdownButton<String>(
+          value: current,
+          isExpanded: true,
+          dropdownColor: const Color(0xFFF4EAD4),
+          iconEnabledColor: const Color(0xFF8A6421),
+          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18)))).toList(),
+          onChanged: onChanged,
+          underline: const SizedBox(),
+        ),
+      );
 }
 
 // --- HAUPT CHAT SCREEN ---
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final GameSettings settings;
+  const ChatScreen({super.key, required this.settings});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -80,23 +278,50 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
   final String _apiKey = "AIzaSyA0XR3uGUG4G13x3UpBoZJdfCtkv-t6tyI";
+  
+  late List<ChatMessage> _messages;
+  late List<InventoryItem> _inventory;
 
-  final List<ChatMessage> _messages = [
-    ChatMessage(text: "Seid gegrüßt, Wanderer. Welche Geheimnisse führen Euch heute zu mir?", isUser: false),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
+    _initInventory();
+  }
+
+  void _initInventory() {
+    if (widget.settings.setting == 'Sci-Fi') {
+      _inventory = [
+        InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'. Energiegeladen und präzise.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
+        InventoryItem(name: "Plasma-Schild", description: "Tragbarer Deflektor gegen Laserbeschuss.", quantity: 1, icon: Icons.shield, iconColor: Colors.cyan),
+        InventoryItem(name: "Nanomed-Kit", description: "Heilt zelluläre Wunden vollautomatisch.", quantity: 2, icon: Icons.biotech, iconColor: Colors.green),
+        InventoryItem(name: "Credit-Chips", description: "Digitale galaktische Währung.", quantity: 250, icon: Icons.toll, iconColor: Colors.amber),
+      ];
+    } else if (widget.settings.setting == 'Piraten') {
+      _inventory = [
+        InventoryItem(name: "Rostiger Säbel", description: "Erfüllt seinen Zweck im Nahkampf.", quantity: 1, icon: Icons.gavel, iconColor: Colors.blueGrey),
+        InventoryItem(name: "Kompass des Schicksals", description: "Zeigt nicht nach Norden, sondern wohin man will.", quantity: 1, icon: Icons.explore, iconColor: Colors.brown),
+        InventoryItem(name: "Buddel edler Rum", description: "Gut für die Moral der Crew.", quantity: 3, icon: Icons.local_bar, iconColor: Colors.deepOrange),
+        InventoryItem(name: "Golddublonen", description: "Glänzendes Beutegut aus spanischen Galeonen.", quantity: 60, icon: Icons.monetization_on, iconColor: Colors.amber),
+      ];
+    } else {
+      _inventory = [
+        InventoryItem(name: "Eisenschwert", description: "Ein treuer, scharfer Gefährte.", quantity: 1, icon: Icons.gavel, iconColor: Colors.grey),
+        InventoryItem(name: "Ritter-Schild", description: "Bemalt mit dem Wappen des Reiches.", quantity: 1, icon: Icons.shield, iconColor: Colors.brown),
+        InventoryItem(name: "Heiltrank", description: "Ein süßlich schmeckendes, rotes Elixier.", quantity: 2, icon: Icons.science, iconColor: Colors.red),
+        InventoryItem(name: "Goldmünzen", description: "Klingende Währung für Händler und Tavernen.", quantity: 120, icon: Icons.monetization_on, iconColor: Colors.amber),
+      ];
+    }
+  }
 
   Future<String> _fetchRealAIResponse(String userMessage) async {
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${_apiKey.trim()}');
+    final contextData = jsonEncode(widget.settings.toJson());
+    final prompt = "Du bist der Game Master eines interaktiven RPGs. Spieldaten: $contextData. Regeln: 1. Antworte passend zum Setting ${widget.settings.setting}. 2. Erstelle Quests. 3. Nutze d20 Würfel für Kämpfe. 4. Halte Antworten kurz. Spieler sagt: $userMessage";
+
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "contents": [{"parts": [{"text": "Du bist ein mystischer Chatbot aus einem Fantasy-RPG. Antworte kurz, altmodisch und weise. Nutzer fragt: $userMessage"}]}]
-        }),
-      );
+      final response = await http.post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode({"contents": [{"parts": [{"text": prompt}]}]}));
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) return data['candidates'][0]['content']['parts'][0]['text'];
       return "Die Magie schwand: ${data['error']['message']}";
@@ -110,22 +335,16 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _messages.add(ChatMessage(text: text, isUser: true)));
     _messageController.clear();
     _scrollToBottom();
-
     int loadingIndex = _messages.length;
     setState(() => _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)));
     _scrollToBottom();
-
     String aiAnswer = await _fetchRealAIResponse(text);
     setState(() => _messages[loadingIndex] = ChatMessage(text: aiAnswer, isUser: false));
     _scrollToBottom();
   }
 
   void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(_scrollController.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) { if (_scrollController.hasClients) _scrollController.animateTo(_scrollController.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut); });
   }
 
   @override
@@ -135,99 +354,36 @@ class _ChatScreenState extends State<ChatScreen> {
       drawer: _buildFantasyDrawer(),
       body: Stack(
         children: [
-          // Hintergrundbild jetzt korrekt benannt
-          Positioned.fill(child: Image.asset('assets/hintergrund.jpg', fit: BoxFit.cover)),
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFF140D07).withOpacity(0.35),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    
-                    // --- HIER IST DIE OPTIMIERTE OBERE LEISTE ---
-Padding(
-  padding: const EdgeInsets.only(right: 16.0, top: 12.0, bottom: 4.0), // Padding auf "right" geändert
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.end, // JETZT NEU: Drückt alles nach RECHTS
-    children: [
-      GestureDetector(
-        onTap: () => _scaffoldKey.currentState?.openDrawer(),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF8A6421).withOpacity(0.85),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFC5A059), width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 4,
-                offset: const Offset(2, 2),
-              )
-            ],
-          ),
-          child: const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26),
-        ),
-      ),
-    ],
-  ),
-),
-
-                    // Der Chat-Bereich
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) => _buildHorizontalScrollBubble(_messages[index]),
+          Positioned.fill(child: Image.asset('assets/hintergrund_landschaft.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Container(color: const Color(0xFF1E140A).withOpacity(0.35))),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(icon: const Icon(Icons.home, color: Color(0xFFC5A059), size: 30), onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const StartScreen()), (r) => false)),
+                      GestureDetector(
+                        onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                        child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF8A6421).withOpacity(0.85), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFC5A059), width: 2)), child: const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26)),
                       ),
-                    ),
-
-                    // Eingabebereich unten
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF2E3C6).withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(6.0),
-                                border: Border.all(color: const Color(0xFF7A5821), width: 2),
-                              ),
-                              child: TextField(
-                                controller: _messageController,
-                                style: const TextStyle(color: Color(0xFF2D1E10), fontWeight: FontWeight.bold),
-                                decoration: const InputDecoration(
-                                  hintText: 'Flüstert Eure Frage...',
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  border: InputBorder.none,
-                                ),
-                                onSubmitted: _sendMessage,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          GestureDetector(
-                            onTap: () => _sendMessage(_messageController.text),
-                            child: Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF7A5821),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFFC5A059), width: 2),
-                              ),
-                              child: const Icon(Icons.draw, color: Color(0xFFF2E3C6), size: 24),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                Expanded(child: ListView.builder(controller: _scrollController, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), itemCount: _messages.length, itemBuilder: (context, index) => _buildHorizontalScrollBubble(_messages[index]))),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(child: Container(decoration: BoxDecoration(color: const Color(0xFFF2E3C6).withOpacity(0.9), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFF7A5821), width: 2)), child: TextField(controller: _messageController, style: const TextStyle(color: Color(0xFF2D1E10), fontWeight: FontWeight.bold), decoration: const InputDecoration(hintText: 'Was tut ihr?', contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14), border: InputBorder.none), onSubmitted: _sendMessage))),
+                      const SizedBox(width: 12),
+                      GestureDetector(onTap: () => _sendMessage(_messageController.text), child: Container(width: 50, height: 50, decoration: BoxDecoration(color: const Color(0xFF7A5821), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFC5A059), width: 2)), child: const Icon(Icons.draw, color: Color(0xFFF2E3C6), size: 24))),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -239,37 +395,34 @@ Padding(
     return Drawer(
       backgroundColor: Colors.transparent,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFF4EAD4),
-          border: Border(right: BorderSide(color: Color(0xFF8A6421), width: 5)),
-        ),
+        decoration: const BoxDecoration(color: Color(0xFFF4EAD4), border: Border(right: BorderSide(color: Color(0xFF8A6421), width: 5))),
         child: Column(
           children: [
-            const DrawerHeader(
-              child: Center(
-                child: Text("MENÜ", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 36, fontFamily: 'Serif', fontWeight: FontWeight.bold)),
-              ),
-            ),
+            const DrawerHeader(child: Center(child: Text("MENÜ", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 36, fontWeight: FontWeight.bold)))),
             _buildDrawerItem(Icons.map, "Karte"),
-            _buildDrawerItem(Icons.backpack, "Inventar"),
-            _buildDrawerItem(Icons.person, "Status"),
+            _buildDrawerItem(Icons.backpack, "Inventar", isInventory: true),
+            _buildDrawerItem(Icons.person, "Status", isStatus: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title) {
+  Widget _buildDrawerItem(IconData icon, String title, {bool isStatus = false, bool isInventory = false}) {
     return Material(
       color: Colors.transparent, // keep the drawer background visible
       child: ListTile(
         leading: Icon(icon, color: const Color(0xFF8A6421)),
-        title: Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 22, fontFamily: 'Serif', fontWeight: FontWeight.w600)),
+        title: Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 22, fontWeight: FontWeight.w600)),
         onTap: () {
           Navigator.pop(context);
-          if (title == "Karte") {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
-          } else {
+          if (isStatus) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => StatusScreen(settings: widget.settings)));
+          } else if (isInventory) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen(inventory: _inventory)));
+          } else if (title == "Karte") {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
+            } else {
             Navigator.push(context, MaterialPageRoute(builder: (context) => GameMenuDetailScreen(title: title)));
           }
         },
@@ -280,42 +433,189 @@ Padding(
   Widget _buildHorizontalScrollBubble(ChatMessage message) {
     final isUser = message.isUser;
     final borderColor = isUser ? const Color(0xFF8A6421) : const Color(0xFF5C4018);
-
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 14.0),
+        margin: const EdgeInsets.symmetric(vertical: 14),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4EAD4),
-                border: Border.symmetric(vertical: BorderSide(color: borderColor, width: 2)),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 5, offset: const Offset(2, 3))],
-              ),
-              child: Text(message.text, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 15.0, fontFamily: 'Serif', height: 1.25)),
-            ),
-            Positioned(top: -6, left: -2, right: -2, child: _roller(borderColor, true)),
-            Positioned(bottom: -6, left: -2, right: -2, child: _roller(borderColor, false)),
-          ],
-        ),
+        child: Stack(clipBehavior: Clip.none, children: [
+          Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4EAD4), border: Border.symmetric(vertical: BorderSide(color: borderColor, width: 2))), child: Text(message.text, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 15, height: 1.25))),
+          Positioned(top: -6, left: -2, right: -2, child: Container(height: 8, decoration: BoxDecoration(color: borderColor, borderRadius: BorderRadius.circular(4)))),
+          Positioned(bottom: -6, left: -2, right: -2, child: Container(height: 8, decoration: BoxDecoration(color: borderColor, borderRadius: BorderRadius.circular(4)))),
+        ]),
       ),
-    );
-  }
-
-  Widget _roller(Color color, bool isTop) {
-    return Container(
-      height: 8,
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
     );
   }
 }
 
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  ChatMessage({required this.text, required this.isUser});
+// --- STATUS SCREEN ---
+
+class StatusScreen extends StatelessWidget {
+  final GameSettings settings;
+  const StatusScreen({super.key, required this.settings});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4EAD4),
+                border: Border.all(color: const Color(0xFF8A6421), width: 4),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15)],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("HELDEN-STATUS", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 20, endIndent: 20),
+                  const SizedBox(height: 20),
+                  _buildStatusRow(Icons.person, "Name", settings.charName),
+                  _buildStatusRow(Icons.wc, "Geschlecht", settings.gender),
+                  _buildStatusRow(Icons.landscape, "Welt", settings.setting),
+                  _buildStatusRow(Icons.bolt, "Schwierigkeit", settings.difficulty),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421), foregroundColor: const Color(0xFFF4EAD4), padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Zurück zum Abenteuer"),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF8A6421), size: 28),
+          const SizedBox(width: 15),
+          Text("$label: ", style: const TextStyle(color: Color(0xFF5C4018), fontSize: 18, fontWeight: FontWeight.bold)),
+          Expanded(child: Text(value, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 20, fontWeight: FontWeight.w400, fontStyle: FontStyle.italic))),
+        ],
+      ),
+    );
+  }
+}
+
+// --- INVENTAR SCREEN ---
+
+class InventoryScreen extends StatelessWidget {
+  final List<InventoryItem> inventory;
+  const InventoryScreen({super.key, required this.inventory});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4EAD4),
+                border: Border.all(color: const Color(0xFF8A6421), width: 4),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20)],
+              ),
+              child: Column(
+                children: [
+                  const Text("BEUTEL & INVENTAR", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 10, endIndent: 10),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: inventory.length,
+                      itemBuilder: (context, index) {
+                        final item = inventory[index];
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFE3C3),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBA9355).withOpacity(0.5), width: 1.5),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: const Color(0xFF2D1E10), borderRadius: BorderRadius.circular(6)),
+                              child: Icon(item.icon, color: item.iconColor, size: 28),
+                            ),
+                            title: Text(item.name, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold)),
+                            subtitle: Text(item.description, style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic)),
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(color: const Color(0xFF8A6421), borderRadius: BorderRadius.circular(12)),
+                              child: Text("x${item.quantity}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 16, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8A6421),
+                      foregroundColor: const Color(0xFFF4EAD4),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Sack schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- PLATZHALTER DETAIL SCREEN ---
+
+class GameMenuDetailScreen extends StatelessWidget {
+  final String title;
+  const GameMenuDetailScreen({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Container(
+          padding: const EdgeInsets.all(30),
+          decoration: BoxDecoration(color: const Color(0xFFF4EAD4), border: Border.all(color: const Color(0xFF8A6421), width: 4), borderRadius: BorderRadius.circular(20)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 32, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              const Text("Diese Chronik wird noch geschrieben...", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 30),
+              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421), foregroundColor: const Color(0xFFF4EAD4)), onPressed: () => Navigator.pop(context), child: const Text("Zurück")),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
