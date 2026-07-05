@@ -413,7 +413,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
-  final String _apiKey = ""; 
+  final String _apiKey = "";   //HIER API KEY
   
   late List<ChatMessage> _messages;
   late List<InventoryItem> _inventory;
