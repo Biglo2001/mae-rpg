@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Für das Kopieren in die Zwischenablage
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/map_screen.dart';
 
 void main() {
@@ -33,6 +35,7 @@ class ChatMessage {
 }
 
 class GameSettings {
+  final String id; 
   final String charName;
   final String gender;
   final String difficulty;
@@ -40,6 +43,7 @@ class GameSettings {
   final bool usePredefinedAdventure;
 
   GameSettings({
+    required this.id,
     required this.charName,
     required this.gender,
     required this.difficulty,
@@ -48,12 +52,24 @@ class GameSettings {
   });
 
   Map<String, dynamic> toJson() => {
+        "id": id,
         "char_name": charName,
         "gender": gender,
         "difficulty": difficulty,
         "setting": setting,
         "adventure_type": usePredefinedAdventure ? "Vorgegeben" : "Prozedural",
       };
+
+  factory GameSettings.fromJson(Map<String, dynamic> json) {
+    return GameSettings(
+      id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      charName: json['char_name'] ?? "Wanderer",
+      gender: json['gender'] ?? "Divers",
+      difficulty: json['difficulty'] ?? "Mittel",
+      setting: json['setting'] ?? "Mittelalter",
+      usePredefinedAdventure: json['adventure_type'] == "Vorgegeben",
+    );
+  }
 }
 
 class InventoryItem {
@@ -104,17 +120,11 @@ class StartScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 60),
                 _buildMenuButton(
-                  text: "Spiel Laden",
+                  text: "Spiel Laden / Teilen",
                   onTap: () {
-                    final defaultSettings = GameSettings(
-                      charName: "Unbekannter Wanderer",
-                      gender: "Divers",
-                      difficulty: "Mittel",
-                      setting: "Mittelalter",
-                    );
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ChatScreen(settings: defaultSettings)),
+                      MaterialPageRoute(builder: (context) => const SaveGameListScreen()),
                     );
                   },
                 ),
@@ -141,7 +151,7 @@ class StartScreen extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF8A6421).withOpacity(0.9),
         foregroundColor: const Color(0xFFF4EAD4),
-        minimumSize: const Size(250, 55),
+        minimumSize: const Size(270, 55),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: Color(0xFFC5A059), width: 2),
@@ -150,6 +160,227 @@ class StartScreen extends StatelessWidget {
       ),
       onPressed: onTap,
       child: Text(text, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+    );
+  }
+}
+
+// --- SPIELSTÄNDE AUSWAHL & IMPORT SCREEN ---
+
+class SaveGameListScreen extends StatefulWidget {
+  const SaveGameListScreen({super.key});
+
+  @override
+  State<SaveGameListScreen> createState() => _SaveGameListScreenState();
+}
+
+class _SaveGameListScreenState extends State<SaveGameListScreen> {
+  List<Map<String, dynamic>> _saveGames = [];
+  bool _loading = true;
+  final TextEditingController _importController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSaveGameList();
+  }
+
+  Future<void> _loadSaveGameList() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((key) => key.startsWith('savegame_'));
+    
+    List<Map<String, dynamic>> loadedSaves = [];
+    for (String key in keys) {
+      try {
+        final data = jsonDecode(prefs.getString(key) ?? '');
+        loadedSaves.add(data);
+      } catch (e) {
+        print("Fehler beim Parsen von Speicherstand $key: $e");
+      }
+    }
+
+    loadedSaves.sort((a, b) {
+      final idA = (a['settings']?['id'] ?? '').toString();
+      final idB = (b['settings']?['id'] ?? '').toString();
+      return idB.compareTo(idA);
+    });
+
+    setState(() {
+      _saveGames = loadedSaves;
+      _loading = false;
+    });
+  }
+
+  Future<void> _deleteSaveGame(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('savegame_$id');
+    _loadSaveGameList();
+  }
+
+  // Erzeugt einen teilbaren Hashcode aus den Spieleinstellungen und der ersten Nachricht
+  String _generateAdventureCode(Map<String, dynamic> save) {
+    try {
+      final settings = save['settings'];
+      final chatList = save['chat'] as List;
+      final firstMsg = chatList.isNotEmpty ? chatList.first['text'] : "";
+
+      final Map<String, dynamic> shareMap = {
+        'settings': settings,
+        'intro': firstMsg,
+      };
+
+      // In Base64 String umwandeln für einen sauberen "Hash"
+      String jsonStr = jsonEncode(shareMap);
+      return base64Encode(utf8.encode(jsonStr));
+    } catch (e) {
+      return "Fehler beim Generieren";
+    }
+  }
+
+  // Importiert ein geteiltes Abenteuer von vorne
+  void _importAdventureCode(String code) {
+    try {
+      String decodedStr = utf8.decode(base64Decode(code.trim()));
+      Map<String, dynamic> importedData = jsonDecode(decodedStr);
+
+      final oldSettings = GameSettings.fromJson(importedData['settings']);
+      // Neue ID geben, damit es den eigenen Spielstand nicht überschreibt
+      final newSettings = GameSettings(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        charName: oldSettings.charName,
+        gender: oldSettings.gender,
+        difficulty: oldSettings.difficulty,
+        setting: oldSettings.setting,
+        usePredefinedAdventure: oldSettings.usePredefinedAdventure,
+      );
+
+      final String introText = importedData['intro'] ?? "Abenteuer beginnt...";
+
+      // Bereite Datenstruktur für den ChatScreen vor
+      final Map<String, dynamic> newSaveStructure = {
+        'settings': newSettings.toJson(),
+        'chat': [{'text': introText, 'isUser': false}],
+        'inventory': [], // Startet leer oder mit Standard-Items
+      };
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => ChatScreen(settings: newSettings, initialSaveData: newSaveStructure)),
+        (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ungültiger Abenteuer-Code!")),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFFC5A059), size: 30),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text("ABENTEUER IMPORTIEREN",
+                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _importController,
+                          decoration: const InputDecoration(
+                            hintText: 'Code hier einfügen...',
+                            filled: true,
+                            fillColor: Color(0xFFF4EAD4),
+                            hintStyle: TextStyle(color: Colors.grey),
+                          ),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421)),
+                        onPressed: () => _importAdventureCode(_importController.text),
+                        child: const Text("Starten"),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFFC5A059), height: 40, thickness: 2),
+                  const Text("GESPEICHERTE CHRONIKEN",
+                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: _loading
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFFC5A059)))
+                        : _saveGames.isEmpty
+                            ? const Center(child: Text("Keine Abenteuer gefunden.", style: TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontStyle: FontStyle.italic)))
+                            : ListView.builder(
+                                itemCount: _saveGames.length,
+                                itemBuilder: (context, index) {
+                                  final save = _saveGames[index];
+                                  final settings = GameSettings.fromJson(save['settings']);
+                                  final lastMsg = (save['chat'] as List).isNotEmpty ? save['chat'].last['text'] : "Gerade begonnen...";
+
+                                  return Container(
+                                    margin: const EdgeInsets.symmetric(vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF4EAD4),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFF8A6421), width: 2),
+                                    ),
+                                    child: ListTile(
+                                      title: Text("${settings.charName} (${settings.setting})", style: const TextStyle(color: Color(0xFF2D1E10), fontWeight: FontWeight.bold, fontSize: 18)),
+                                      subtitle: Text(lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF5C4018), fontStyle: FontStyle.italic)),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.share, color: Colors.blueAccent),
+                                            tooltip: 'Code kopieren',
+                                            onPressed: () {
+                                              String code = _generateAdventureCode(save);
+                                              Clipboard.setData(ClipboardData(text: code));
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text("Abenteuer-Code in Zwischenablage kopiert!")),
+                                              );
+                                            },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                            onPressed: () => _deleteSaveGame(settings.id),
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: () {
+                                        Navigator.pushAndRemoveUntil(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => ChatScreen(settings: settings, initialSaveData: save)),
+                                          (route) => false,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -181,7 +412,7 @@ class _SetupScreenState extends State<SetupScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // HIER KORRIGIERT
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Color(0xFFC5A059), size: 30),
@@ -223,6 +454,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       ),
                       onPressed: () {
                         final settings = GameSettings(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(), 
                           charName: _nameController.text.isEmpty ? "Namenloser" : _nameController.text,
                           gender: _selectedGender,
                           difficulty: _selectedDifficulty,
@@ -268,7 +500,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
 class ChatScreen extends StatefulWidget {
   final GameSettings settings;
-  const ChatScreen({super.key, required this.settings});
+  final Map<String, dynamic>? initialSaveData; 
+
+  const ChatScreen({super.key, required this.settings, this.initialSaveData});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -278,16 +512,48 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final String _apiKey = "AIzaSyA0XR3uGUG4G13x3UpBoZJdfCtkv-t6tyI";
+  A
+  final String _apiKey = "";
   
   late List<ChatMessage> _messages;
   late List<InventoryItem> _inventory;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
-    _initInventory();
+    if (widget.initialSaveData != null) {
+      _loadFromInitialData();
+    } else {
+      _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
+      _initInventory();
+      _saveGame(); 
+    }
+  }
+
+  void _loadFromInitialData() {
+    final save = widget.initialSaveData!;
+    
+    final List<dynamic> savedChat = save['chat'];
+    _messages = savedChat.map((msg) => ChatMessage(text: msg['text'], isUser: msg['isUser'])).toList();
+
+    final List<dynamic> savedInv = save['inventory'] ?? [];
+    _inventory = savedInv.map((item) {
+      IconData icon = Icons.backpack; 
+      if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel")) icon = Icons.gavel;
+      if (item['name'].toString().contains("Trank") || item['name'].toString().contains("Rum")) icon = Icons.science;
+      if (item['name'].toString().contains("Münzen") || item['name'].toString().contains("Gold") || item['name'].toString().contains("Credit")) icon = Icons.monetization_on;
+
+      return InventoryItem(
+        name: item['name'],
+        description: item['description'],
+        quantity: item['quantity'],
+        icon: icon,
+        iconColor: Colors.amber,
+      );
+    }).toList();
+
+    _scrollToBottom();
   }
 
   void _initInventory() {
@@ -296,13 +562,13 @@ class _ChatScreenState extends State<ChatScreen> {
         InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'. Energiegeladen und präzise.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
         InventoryItem(name: "Plasma-Schild", description: "Tragbarer Deflektor gegen Laserbeschuss.", quantity: 1, icon: Icons.shield, iconColor: Colors.cyan),
         InventoryItem(name: "Nanomed-Kit", description: "Heilt zelluläre Wunden vollautomatisch.", quantity: 2, icon: Icons.biotech, iconColor: Colors.green),
-        InventoryItem(name: "Credit-Chips", description: "Digitale galaktische Währung.", quantity: 250, icon: Icons.toll, iconColor: Colors.amber),
+        InventoryItem(name: "Credit-Chips", description: "Digitale galaktische Währung.", quantity: 250, icon: Icons.monetization_on, iconColor: Colors.amber),
       ];
     } else if (widget.settings.setting == 'Piraten') {
       _inventory = [
         InventoryItem(name: "Rostiger Säbel", description: "Erfüllt seinen Zweck im Nahkampf.", quantity: 1, icon: Icons.gavel, iconColor: Colors.blueGrey),
         InventoryItem(name: "Kompass des Schicksals", description: "Zeigt nicht nach Norden, sondern wohin man will.", quantity: 1, icon: Icons.explore, iconColor: Colors.brown),
-        InventoryItem(name: "Buddel edler Rum", description: "Gut für die Moral der Crew.", quantity: 3, icon: Icons.local_bar, iconColor: Colors.deepOrange),
+        InventoryItem(name: "Buddel edler Rum", description: "Gut für die Moral der Crew.", quantity: 3, icon: Icons.science, iconColor: Colors.deepOrange),
         InventoryItem(name: "Golddublonen", description: "Glänzendes Beutegut aus spanischen Galeonen.", quantity: 60, icon: Icons.monetization_on, iconColor: Colors.amber),
       ];
     } else {
@@ -315,13 +581,53 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _saveGame() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    List<Map<String, dynamic>> chatJson = _messages.map((msg) => {'text': msg.text, 'isUser': msg.isUser}).toList();
+    List<Map<String, dynamic>> inventoryJson = _inventory.map((item) => {'name': item.name, 'description': item.description, 'quantity': item.quantity}).toList();
+
+    Map<String, dynamic> gameState = {
+      'settings': widget.settings.toJson(),
+      'chat': chatJson,
+      'inventory': inventoryJson,
+    };
+
+    await prefs.setString('savegame_${widget.settings.id}', jsonEncode(gameState));
+  }
+
   Future<String> _fetchRealAIResponse(String userMessage) async {
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${_apiKey.trim()}');
     final contextData = jsonEncode(widget.settings.toJson());
-    final prompt = "Du bist der Game Master eines interaktiven RPGs. Spieldaten: $contextData. Regeln: 1. Antworte passend zum Setting ${widget.settings.setting}. 2. Erstelle Quests. 3. Nutze d20 Würfel für Kämpfe. 4. Halte Antworten kurz. Spieler sagt: $userMessage";
+    
+    final systemInstruction = """
+Du bist der Game Master eines interaktiven RPGs. Spieldaten: $contextData. Welt-Setting: ${widget.settings.setting}.
+
+Deine Aufgaben:
+1. Erschaffe eine Kampagne mit einem roten Faden, bestehend aus 3-5 zusammenhängenden Orten.
+2. Jeder Ort bietet NPCs zum Interagieren, Gegenstände zum Untersuchen und mindestens eine Quest.
+3. Der Spieler kann Gegenstände/Items finden, die nützlich für ihn sind.
+4. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze), um das Spiel flüssig zu halten.
+
+WICHTIG - KAMPFSYSTEM:
+Wenn ein Kampf ausbricht, füge AM ENDE deiner Antwort in einer eigenen neuen Zeile EXAKT folgendes ein:
+[START_COMBAT:{"enemy": "Name des Gegners", "hp": 50, "danger": "Mittel"}]
+Schreibe danach absolut nichts mehr!
+""";
+
+    final requestBody = {
+      "contents": [
+        {
+          "parts": [{"text": userMessage}]
+        }
+      ],
+      "systemInstruction": {
+        "parts": [{"text": systemInstruction}]
+      }
+    };
 
     try {
-      final response = await http.post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode({"contents": [{"parts": [{"text": prompt}]}]}));
+      final response = await http.post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode(requestBody));
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) return data['candidates'][0]['content']['parts'][0]['text'];
       return "Die Magie schwand: ${data['error']['message']}";
@@ -331,16 +637,60 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
-    setState(() => _messages.add(ChatMessage(text: text, isUser: true)));
+    if (text.trim().isEmpty || _isLoading) return;
+    
+    setState(() {
+      _isLoading = true;
+      _messages.add(ChatMessage(text: text, isUser: true));
+    });
     _messageController.clear();
     _scrollToBottom();
+    
     int loadingIndex = _messages.length;
     setState(() => _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)));
     _scrollToBottom();
+    
     String aiAnswer = await _fetchRealAIResponse(text);
-    setState(() => _messages[loadingIndex] = ChatMessage(text: aiAnswer, isUser: false));
+    
+    if (aiAnswer.contains('[START_COMBAT:')) {
+      final startIndex = aiAnswer.indexOf('[START_COMBAT:');
+      final endIndex = aiAnswer.indexOf(']', startIndex);
+      
+      if (startIndex != -1 && endIndex != -1) {
+        final combatDataString = aiAnswer.substring(startIndex + 14, endIndex);
+        final cleanAnswer = aiAnswer.substring(0, startIndex).trim();
+        
+        setState(() {
+          _messages[loadingIndex] = ChatMessage(text: cleanAnswer, isUser: false);
+          _isLoading = false;
+        });
+        _scrollToBottom();
+        await _saveGame(); 
+
+        try {
+          final Map<String, dynamic> combatData = jsonDecode(combatDataString);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CombatScreen(
+                enemyName: combatData['enemy'] ?? "Unbekannter Gegner",
+                enemyHp: combatData['hp'] ?? 50,
+              ),
+            ),
+          );
+        } catch (e) {
+          print("Fehler beim Parsen der Kampfdaten: $e");
+        }
+        return; 
+      }
+    }
+    
+    setState(() {
+      _messages[loadingIndex] = ChatMessage(text: aiAnswer, isUser: false);
+      _isLoading = false;
+    });
     _scrollToBottom();
+    await _saveGame(); 
   }
 
   void _scrollToBottom() {
@@ -360,14 +710,25 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: const EdgeInsets.only(left: 12.0, right: 16.0, top: 12.0, bottom: 4.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(icon: const Icon(Icons.home, color: Color(0xFFC5A059), size: 30), onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const StartScreen()), (r) => false)),
+                      IconButton(
+                        icon: const Icon(Icons.home, color: Color(0xFFC5A059), size: 30), 
+                        onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const StartScreen()), (r) => false)
+                      ),
                       GestureDetector(
                         onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                        child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF8A6421).withOpacity(0.85), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFC5A059), width: 2)), child: const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26)),
+                        child: Container(
+                          padding: const EdgeInsets.all(10), 
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8A6421).withOpacity(0.85), 
+                            borderRadius: BorderRadius.circular(8), 
+                            border: Border.all(color: const Color(0xFFC5A059), width: 2)
+                          ), 
+                          child: const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26)
+                        ),
                       ),
                     ],
                   ),
@@ -377,9 +738,36 @@ class _ChatScreenState extends State<ChatScreen> {
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
                     children: [
-                      Expanded(child: Container(decoration: BoxDecoration(color: const Color(0xFFF2E3C6).withOpacity(0.9), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFF7A5821), width: 2)), child: TextField(controller: _messageController, style: const TextStyle(color: Color(0xFF2D1E10), fontWeight: FontWeight.bold), decoration: const InputDecoration(hintText: 'Was tut ihr?', contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14), border: InputBorder.none), onSubmitted: _sendMessage))),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF2E3C6).withOpacity(_isLoading ? 0.5 : 0.9), 
+                            borderRadius: BorderRadius.circular(6), 
+                            border: Border.all(color: const Color(0xFF7A5821), width: 2)
+                          ), 
+                          child: TextField(
+                            controller: _messageController, 
+                            enabled: !_isLoading,
+                            style: const TextStyle(color: Color(0xFF2D1E10), fontWeight: FontWeight.bold), 
+                            decoration: const InputDecoration(hintText: 'Was tut ihr?', contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14), border: InputBorder.none), 
+                            onSubmitted: _sendMessage
+                          )
+                        )
+                      ),
                       const SizedBox(width: 12),
-                      GestureDetector(onTap: () => _sendMessage(_messageController.text), child: Container(width: 50, height: 50, decoration: BoxDecoration(color: const Color(0xFF7A5821), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFC5A059), width: 2)), child: const Icon(Icons.draw, color: Color(0xFFF2E3C6), size: 24))),
+                      GestureDetector(
+                        onTap: _isLoading ? null : () => _sendMessage(_messageController.text), 
+                        child: Container(
+                          width: 50, 
+                          height: 50, 
+                          decoration: BoxDecoration(
+                            color: _isLoading ? Colors.grey : const Color(0xFF7A5821), 
+                            shape: BoxShape.circle, 
+                            border: Border.all(color: const Color(0xFFC5A059), width: 2)
+                          ), 
+                          child: const Icon(Icons.draw, color: Color(0xFFF2E3C6), size: 24)
+                        )
+                      ),
                     ],
                   ),
                 ),
@@ -410,7 +798,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildDrawerItem(IconData icon, String title, {bool isStatus = false, bool isInventory = false}) {
     return Material(
-      color: Colors.transparent, // keep the drawer background visible
+      color: Colors.transparent,
       child: ListTile(
         leading: Icon(icon, color: const Color(0xFF8A6421)),
         title: Text(title, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 22, fontWeight: FontWeight.w600)),
@@ -421,8 +809,8 @@ class _ChatScreenState extends State<ChatScreen> {
           } else if (isInventory) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen(inventory: _inventory)));
           } else if (title == "Karte") {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
-            } else {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
+          } else {
             Navigator.push(context, MaterialPageRoute(builder: (context) => GameMenuDetailScreen(title: title)));
           }
         },
@@ -615,6 +1003,61 @@ class GameMenuDetailScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// --- KAMPF SCREEN ---
+
+class CombatScreen extends StatelessWidget {
+  final String enemyName;
+  final int enemyHp;
+
+  const CombatScreen({
+    super.key, 
+    required this.enemyName, 
+    required this.enemyHp
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Container(color: Colors.red.withOpacity(0.3))), 
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D1E10),
+                border: Border.all(color: Colors.redAccent, width: 4),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.gavel, color: Colors.redAccent, size: 60),
+                  const SizedBox(height: 10),
+                  const Text("KAMPF GESTARTET!", style: TextStyle(color: Colors.redAccent, fontSize: 30, fontWeight: FontWeight.bold)),
+                  const Divider(color: Colors.red, thickness: 2),
+                  const SizedBox(height: 20),
+                  Text("Gegner: $enemyName", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Text("Lebenspunkte: $enemyHp HP", style: const TextStyle(color: Colors.orangeAccent, fontSize: 18)),
+                  const SizedBox(height: 40),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
+                    onPressed: () => Navigator.pop(context), 
+                    child: const Text("Kampf beenden & Fliehen", style: TextStyle(fontSize: 16)),
+                  )
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
