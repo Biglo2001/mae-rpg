@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Für das Kopieren in die Zwischenablage
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/map_screen.dart';
@@ -119,7 +120,7 @@ class StartScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 60),
                 _buildMenuButton(
-                  text: "Spiel Laden",
+                  text: "Spiel Laden / Teilen",
                   onTap: () {
                     Navigator.push(
                       context,
@@ -150,7 +151,7 @@ class StartScreen extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF8A6421).withOpacity(0.9),
         foregroundColor: const Color(0xFFF4EAD4),
-        minimumSize: const Size(250, 55),
+        minimumSize: const Size(270, 55),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: Color(0xFFC5A059), width: 2),
@@ -163,7 +164,7 @@ class StartScreen extends StatelessWidget {
   }
 }
 
-// --- SPIELSTÄNDE AUSWAHL SCREEN ---
+// --- SPIELSTÄNDE AUSWAHL & IMPORT SCREEN ---
 
 class SaveGameListScreen extends StatefulWidget {
   const SaveGameListScreen({super.key});
@@ -175,6 +176,7 @@ class SaveGameListScreen extends StatefulWidget {
 class _SaveGameListScreenState extends State<SaveGameListScreen> {
   List<Map<String, dynamic>> _saveGames = [];
   bool _loading = true;
+  final TextEditingController _importController = TextEditingController();
 
   @override
   void initState() {
@@ -196,7 +198,6 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
       }
     }
 
-    // Neueste Spielstände oben anzeigen
     loadedSaves.sort((a, b) {
       final idA = (a['settings']?['id'] ?? '').toString();
       final idB = (b['settings']?['id'] ?? '').toString();
@@ -213,6 +214,64 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('savegame_$id');
     _loadSaveGameList();
+  }
+
+  // Erzeugt einen teilbaren Hashcode aus den Spieleinstellungen und der ersten Nachricht
+  String _generateAdventureCode(Map<String, dynamic> save) {
+    try {
+      final settings = save['settings'];
+      final chatList = save['chat'] as List;
+      final firstMsg = chatList.isNotEmpty ? chatList.first['text'] : "";
+
+      final Map<String, dynamic> shareMap = {
+        'settings': settings,
+        'intro': firstMsg,
+      };
+
+      // In Base64 String umwandeln für einen sauberen "Hash"
+      String jsonStr = jsonEncode(shareMap);
+      return base64Encode(utf8.encode(jsonStr));
+    } catch (e) {
+      return "Fehler beim Generieren";
+    }
+  }
+
+  // Importiert ein geteiltes Abenteuer von vorne
+  void _importAdventureCode(String code) {
+    try {
+      String decodedStr = utf8.decode(base64Decode(code.trim()));
+      Map<String, dynamic> importedData = jsonDecode(decodedStr);
+
+      final oldSettings = GameSettings.fromJson(importedData['settings']);
+      // Neue ID geben, damit es den eigenen Spielstand nicht überschreibt
+      final newSettings = GameSettings(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        charName: oldSettings.charName,
+        gender: oldSettings.gender,
+        difficulty: oldSettings.difficulty,
+        setting: oldSettings.setting,
+        usePredefinedAdventure: oldSettings.usePredefinedAdventure,
+      );
+
+      final String introText = importedData['intro'] ?? "Abenteuer beginnt...";
+
+      // Bereite Datenstruktur für den ChatScreen vor
+      final Map<String, dynamic> newSaveStructure = {
+        'settings': newSettings.toJson(),
+        'chat': [{'text': introText, 'isUser': false}],
+        'inventory': [], // Startet leer oder mit Standard-Items
+      };
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => ChatScreen(settings: newSettings, initialSaveData: newSaveStructure)),
+        (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ungültiger Abenteuer-Code!")),
+      );
+    }
   }
 
   @override
@@ -233,9 +292,35 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(height: 10),
+                  const Text("ABENTEUER IMPORTIEREN",
+                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 20, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _importController,
+                          decoration: const InputDecoration(
+                            hintText: 'Code hier einfügen...',
+                            filled: true,
+                            fillColor: Color(0xFFF4EAD4),
+                            hintStyle: TextStyle(color: Colors.grey),
+                          ),
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421)),
+                        onPressed: () => _importAdventureCode(_importController.text),
+                        child: const Text("Starten"),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFFC5A059), height: 40, thickness: 2),
                   const Text("GESPEICHERTE CHRONIKEN",
-                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 28, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 20),
+                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: _loading
                         ? const Center(child: CircularProgressIndicator(color: Color(0xFFC5A059)))
@@ -258,9 +343,25 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
                                     child: ListTile(
                                       title: Text("${settings.charName} (${settings.setting})", style: const TextStyle(color: Color(0xFF2D1E10), fontWeight: FontWeight.bold, fontSize: 18)),
                                       subtitle: Text(lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF5C4018), fontStyle: FontStyle.italic)),
-                                      trailing: IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                        onPressed: () => _deleteSaveGame(settings.id),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.share, color: Colors.blueAccent),
+                                            tooltip: 'Code kopieren',
+                                            onPressed: () {
+                                              String code = _generateAdventureCode(save);
+                                              Clipboard.setData(ClipboardData(text: code));
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text("Abenteuer-Code in Zwischenablage kopiert!")),
+                                              );
+                                            },
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                            onPressed: () => _deleteSaveGame(settings.id),
+                                          ),
+                                        ],
                                       ),
                                       onTap: () {
                                         Navigator.pushAndRemoveUntil(
@@ -411,9 +512,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
-  // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
-  final String _apiKey = "";   //HIER API KEY
+  A
+  final String _apiKey = "";
   
   late List<ChatMessage> _messages;
   late List<InventoryItem> _inventory;
@@ -427,19 +527,17 @@ class _ChatScreenState extends State<ChatScreen> {
     } else {
       _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
       _initInventory();
-      _saveGame(); // Direkt nach Start initial sichern
+      _saveGame(); 
     }
   }
 
   void _loadFromInitialData() {
     final save = widget.initialSaveData!;
     
-    // Chat wiederherstellen
     final List<dynamic> savedChat = save['chat'];
     _messages = savedChat.map((msg) => ChatMessage(text: msg['text'], isUser: msg['isUser'])).toList();
 
-    // Inventar wiederherstellen
-    final List<dynamic> savedInv = save['inventory'];
+    final List<dynamic> savedInv = save['inventory'] ?? [];
     _inventory = savedInv.map((item) {
       IconData icon = Icons.backpack; 
       if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel")) icon = Icons.gavel;
@@ -567,7 +665,7 @@ Schreibe danach absolut nichts mehr!
           _isLoading = false;
         });
         _scrollToBottom();
-        await _saveGame(); // Speichern vor dem Kampf
+        await _saveGame(); 
 
         try {
           final Map<String, dynamic> combatData = jsonDecode(combatDataString);
