@@ -41,6 +41,8 @@ class GameSettings {
   final String difficulty;
   final String setting;
   final bool usePredefinedAdventure;
+  int hp;
+  int maxHp;
 
   GameSettings({
     required this.id,
@@ -49,6 +51,8 @@ class GameSettings {
     required this.difficulty,
     required this.setting,
     this.usePredefinedAdventure = false,
+    this.hp = 100,
+    this.maxHp = 100,
   });
 
   Map<String, dynamic> toJson() => {
@@ -58,6 +62,8 @@ class GameSettings {
         "difficulty": difficulty,
         "setting": setting,
         "adventure_type": usePredefinedAdventure ? "Vorgegeben" : "Prozedural",
+        "hp": hp,
+        "max_hp": maxHp,
       };
 
   factory GameSettings.fromJson(Map<String, dynamic> json) {
@@ -68,6 +74,8 @@ class GameSettings {
       difficulty: json['difficulty'] ?? "Mittel",
       setting: json['setting'] ?? "Mittelalter",
       usePredefinedAdventure: json['adventure_type'] == "Vorgegeben",
+      hp: json['hp'] ?? 100,
+      maxHp: json['max_hp'] ?? 100,
     );
   }
 }
@@ -75,7 +83,7 @@ class GameSettings {
 class InventoryItem {
   final String name;
   final String description;
-  final int quantity;
+  int quantity; 
   final IconData icon;
   final Color iconColor;
 
@@ -99,7 +107,7 @@ class StartScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover),
+            child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black)),
           ),
           Positioned.fill(
             child: Container(color: Colors.black.withOpacity(0.4)),
@@ -216,7 +224,6 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
     _loadSaveGameList();
   }
 
-  // Erzeugt einen teilbaren Hashcode aus den Spieleinstellungen und der ersten Nachricht
   String _generateAdventureCode(Map<String, dynamic> save) {
     try {
       final settings = save['settings'];
@@ -228,7 +235,6 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
         'intro': firstMsg,
       };
 
-      // In Base64 String umwandeln für einen sauberen "Hash"
       String jsonStr = jsonEncode(shareMap);
       return base64Encode(utf8.encode(jsonStr));
     } catch (e) {
@@ -236,14 +242,12 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
     }
   }
 
-  // Importiert ein geteiltes Abenteuer von vorne
   void _importAdventureCode(String code) {
     try {
       String decodedStr = utf8.decode(base64Decode(code.trim()));
       Map<String, dynamic> importedData = jsonDecode(decodedStr);
 
       final oldSettings = GameSettings.fromJson(importedData['settings']);
-      // Neue ID geben, damit es den eigenen Spielstand nicht überschreibt
       final newSettings = GameSettings(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         charName: oldSettings.charName,
@@ -255,11 +259,10 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
 
       final String introText = importedData['intro'] ?? "Abenteuer beginnt...";
 
-      // Bereite Datenstruktur für den ChatScreen vor
       final Map<String, dynamic> newSaveStructure = {
         'settings': newSettings.toJson(),
         'chat': [{'text': introText, 'isUser': false}],
-        'inventory': [], // Startet leer oder mit Standard-Items
+        'inventory': [], 
       };
 
       Navigator.pushAndRemoveUntil(
@@ -279,7 +282,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
           Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
           SafeArea(
             child: Padding(
@@ -406,7 +409,7 @@ class _SetupScreenState extends State<SetupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
           Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
           SafeArea(
             child: SingleChildScrollView(
@@ -454,12 +457,14 @@ class _SetupScreenState extends State<SetupScreen> {
                       ),
                       onPressed: () {
                         final settings = GameSettings(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(), 
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
                           charName: _nameController.text.isEmpty ? "Namenloser" : _nameController.text,
                           gender: _selectedGender,
                           difficulty: _selectedDifficulty,
                           setting: _selectedSetting,
                           usePredefinedAdventure: _isPredefined,
+                          hp: 100, 
+                          maxHp: 100,
                         );
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
                       },
@@ -513,6 +518,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
+  // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
   final String _apiKey = "";
   
   late List<ChatMessage> _messages;
@@ -540,8 +546,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final List<dynamic> savedInv = save['inventory'] ?? [];
     _inventory = savedInv.map((item) {
       IconData icon = Icons.backpack; 
-      if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel")) icon = Icons.gavel;
-      if (item['name'].toString().contains("Trank") || item['name'].toString().contains("Rum")) icon = Icons.science;
+      if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel") || item['name'].toString().contains("Dolch")) icon = Icons.gavel;
+      if (item['name'].toString().contains("Trank") || item['name'].toString().contains("Kit") || item['name'].toString().contains("Rum")) icon = Icons.science;
       if (item['name'].toString().contains("Münzen") || item['name'].toString().contains("Gold") || item['name'].toString().contains("Credit")) icon = Icons.monetization_on;
 
       return InventoryItem(
@@ -559,31 +565,27 @@ class _ChatScreenState extends State<ChatScreen> {
   void _initInventory() {
     if (widget.settings.setting == 'Sci-Fi') {
       _inventory = [
-        InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'. Energiegeladen und präzise.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
-        InventoryItem(name: "Plasma-Schild", description: "Tragbarer Deflektor gegen Laserbeschuss.", quantity: 1, icon: Icons.shield, iconColor: Colors.cyan),
-        InventoryItem(name: "Nanomed-Kit", description: "Heilt zelluläre Wunden vollautomatisch.", quantity: 2, icon: Icons.biotech, iconColor: Colors.green),
-        InventoryItem(name: "Credit-Chips", description: "Digitale galaktische Währung.", quantity: 250, icon: Icons.monetization_on, iconColor: Colors.amber),
+        InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
+        InventoryItem(name: "Nanomed-Kit", description: "Heilt 30 HP.", quantity: 2, icon: Icons.science, iconColor: Colors.green),
+        InventoryItem(name: "Credit-Chips", description: "Digitale Währung.", quantity: 250, icon: Icons.monetization_on, iconColor: Colors.amber),
       ];
     } else if (widget.settings.setting == 'Piraten') {
       _inventory = [
         InventoryItem(name: "Rostiger Säbel", description: "Erfüllt seinen Zweck im Nahkampf.", quantity: 1, icon: Icons.gavel, iconColor: Colors.blueGrey),
-        InventoryItem(name: "Kompass des Schicksals", description: "Zeigt nicht nach Norden, sondern wohin man will.", quantity: 1, icon: Icons.explore, iconColor: Colors.brown),
-        InventoryItem(name: "Buddel edler Rum", description: "Gut für die Moral der Crew.", quantity: 3, icon: Icons.science, iconColor: Colors.deepOrange),
-        InventoryItem(name: "Golddublonen", description: "Glänzendes Beutegut aus spanischen Galeonen.", quantity: 60, icon: Icons.monetization_on, iconColor: Colors.amber),
+        InventoryItem(name: "Buddel edler Rum", description: "Heilt 30 HP.", quantity: 3, icon: Icons.science, iconColor: Colors.deepOrange),
+        InventoryItem(name: "Golddublonen", description: "Glänzendes Beutegut.", quantity: 60, icon: Icons.monetization_on, iconColor: Colors.amber),
       ];
     } else {
       _inventory = [
-        InventoryItem(name: "Eisenschwert", description: "Ein treuer, scharfer Gefährte.", quantity: 1, icon: Icons.gavel, iconColor: Colors.grey),
-        InventoryItem(name: "Ritter-Schild", description: "Bemalt mit dem Wappen des Reiches.", quantity: 1, icon: Icons.shield, iconColor: Colors.brown),
-        InventoryItem(name: "Heiltrank", description: "Ein süßlich schmeckendes, rotes Elixier.", quantity: 2, icon: Icons.science, iconColor: Colors.red),
-        InventoryItem(name: "Goldmünzen", description: "Klingende Währung für Händler und Tavernen.", quantity: 120, icon: Icons.monetization_on, iconColor: Colors.amber),
+        InventoryItem(name: "Eisenschwert", description: "Ein treuer Gefährte.", quantity: 1, icon: Icons.gavel, iconColor: Colors.grey),
+        InventoryItem(name: "Heiltrank", description: "Heilt 30 HP.", quantity: 2, icon: Icons.science, iconColor: Colors.red),
+        InventoryItem(name: "Goldmünzen", description: "Klingende Währung.", quantity: 120, icon: Icons.monetization_on, iconColor: Colors.amber),
       ];
     }
   }
 
   Future<void> _saveGame() async {
     final prefs = await SharedPreferences.getInstance();
-    
     List<Map<String, dynamic>> chatJson = _messages.map((msg) => {'text': msg.text, 'isUser': msg.isUser}).toList();
     List<Map<String, dynamic>> inventoryJson = _inventory.map((item) => {'name': item.name, 'description': item.description, 'quantity': item.quantity}).toList();
 
@@ -596,29 +598,75 @@ class _ChatScreenState extends State<ChatScreen> {
     await prefs.setString('savegame_${widget.settings.id}', jsonEncode(gameState));
   }
 
+  // --- LOKALES ITEM BENUTZEN ---
+  bool _handleItemUsage(String text) {
+    final lowerText = text.toLowerCase();
+    
+    if (lowerText.contains("nutze") || lowerText.contains("trinke") || lowerText.contains("heile")) {
+      String targetName = "";
+      if (widget.settings.setting == 'Sci-Fi') targetName = "nanomed-kit";
+      else if (widget.settings.setting == 'Piraten') targetName = "rum";
+      else targetName = "heiltrank";
+
+      try {
+        final item = _inventory.firstWhere((element) => element.name.toLowerCase().contains(targetName));
+        if (item.quantity > 0) {
+          setState(() {
+            item.quantity--;
+            widget.settings.hp = (widget.settings.hp + 30).clamp(0, widget.settings.maxHp);
+            _messages.add(ChatMessage(text: "Du benutzt ${item.name}. Deine Wunden schließen sich (+30 HP).", isUser: false));
+            
+            // WICHTIG: Wenn die Menge auf 0 fällt, löschen wir das Item komplett!
+            if (item.quantity <= 0) {
+              _inventory.remove(item);
+            }
+          });
+          _saveGame();
+          _scrollToBottom();
+          return true;
+        }
+      } catch (_) {}
+      
+      setState(() {
+        _messages.add(ChatMessage(text: "Du suchst in deinen Taschen, aber du hast keinen solchen Gegenstand mehr!", isUser: false));
+      });
+      _scrollToBottom();
+      return true;
+    }
+    return false;
+  }
+
   Future<String> _fetchRealAIResponse(String userMessage) async {
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${_apiKey.trim()}');
-    final contextData = jsonEncode(widget.settings.toJson());
     
+    final invList = _inventory.map((e) => "${e.name} (x${e.quantity})").join(", ");
+    final chatHistory = _messages.length > 10 
+        ? _messages.sublist(_messages.length - 10).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
+        : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
+
     final systemInstruction = """
-Du bist der Game Master eines interaktiven RPGs. Spieldaten: $contextData. Welt-Setting: ${widget.settings.setting}.
+Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
+Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.hp}/${widget.settings.maxHp}.
 
 Deine Aufgaben:
-1. Erschaffe eine Kampagne mit einem roten Faden, bestehend aus 3-5 zusammenhängenden Orten.
-2. Jeder Ort bietet NPCs zum Interagieren, Gegenstände zum Untersuchen und mindestens eine Quest.
-3. Der Spieler kann Gegenstände/Items finden, die nützlich für ihn sind.
-4. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze), um das Spiel flüssig zu halten.
+1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
+2. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
 
-WICHTIG - KAMPFSYSTEM:
-Wenn ein Kampf ausbricht, füge AM ENDE deiner Antwort in einer eigenen neuen Zeile EXAKT folgendes ein:
-[START_COMBAT:{"enemy": "Name des Gegners", "hp": 50, "danger": "Mittel"}]
-Schreibe danach absolut nichts mehr!
+WICHTIGE REGELN FÜR DYNAMISCHE WERTE & ITEMS:
+- ANTI-CHEAT AUFHEBEN: Wenn der Spieler versucht etwas aufzuheben, prüfe streng ob es existiert. Wenn JA, antworte normal und hänge in einer NEUEN ZEILE an: [ADD_ITEM:{"name": "Item", "desc": "Beschreibung"}]
+- ITEMS VERLIEREN: Wenn der Spieler einen Gegenstand ablegt, wegwirft, ihm etwas gestohlen wird oder er einen Gegenstand abgibt, hänge an: [REMOVE_ITEM:{"name": "Name aus Inventar", "qty": 1}]
+- SCHADEN / HEILUNG: Wenn der Spieler durch Fallen, Angriffe, Feuer o.ä. Schaden nimmt oder regeneriert (ohne dass er ein lokales Item auslöst), hänge an: [UPDATE_HP:-15] (für 15 Schaden) oder [UPDATE_HP:20] (für Heilung).
+- KAMPF: Wenn ein Kampf startet, ende mit: [START_COMBAT:{"enemy": "Name", "hp": 50}]
+
+Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiteren Text danach.
 """;
 
     final requestBody = {
       "contents": [
         {
-          "parts": [{"text": userMessage}]
+          "parts": [
+            {"text": "Bisheriger Verlauf:\n$chatHistory\n\nAktuelle Aktion des Spielers: $userMessage"}
+          ]
         }
       ],
       "systemInstruction": {
@@ -646,51 +694,105 @@ Schreibe danach absolut nichts mehr!
     _messageController.clear();
     _scrollToBottom();
     
+    if (_handleItemUsage(text)) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    
     int loadingIndex = _messages.length;
     setState(() => _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)));
     _scrollToBottom();
     
     String aiAnswer = await _fetchRealAIResponse(text);
-    
-    if (aiAnswer.contains('[START_COMBAT:')) {
-      final startIndex = aiAnswer.indexOf('[START_COMBAT:');
-      final endIndex = aiAnswer.indexOf(']', startIndex);
-      
-      if (startIndex != -1 && endIndex != -1) {
-        final combatDataString = aiAnswer.substring(startIndex + 14, endIndex);
-        final cleanAnswer = aiAnswer.substring(0, startIndex).trim();
+    String cleanAnswer = aiAnswer;
+
+    // --- 1. HP Updates verarbeiten ---
+    final hpRegex = RegExp(r'\[UPDATE_HP:([+-]?\d+)\]');
+    Iterable<RegExpMatch> hpMatches = hpRegex.allMatches(cleanAnswer);
+    for (final match in hpMatches) {
+      int hpChange = int.tryParse(match.group(1) ?? '0') ?? 0;
+      setState(() {
+        widget.settings.hp = (widget.settings.hp + hpChange).clamp(0, widget.settings.maxHp);
+      });
+    }
+    cleanAnswer = cleanAnswer.replaceAll(hpRegex, '').trim();
+
+    // --- 2. Items entfernen / fallen lassen ---
+    final removeRegex = RegExp(r'\[REMOVE_ITEM:(\{.*?\})\]');
+    Iterable<RegExpMatch> removeMatches = removeRegex.allMatches(cleanAnswer);
+    for (final match in removeMatches) {
+      try {
+        final data = jsonDecode(match.group(1)!);
+        String name = data['name'];
+        int qty = data['qty'] ?? 1;
         
         setState(() {
-          _messages[loadingIndex] = ChatMessage(text: cleanAnswer, isUser: false);
-          _isLoading = false;
+          int idx = _inventory.indexWhere((i) => i.name.toLowerCase() == name.toLowerCase());
+          if (idx != -1) {
+            _inventory[idx].quantity -= qty;
+            cleanAnswer += "\n\n❌ [Gegenstand verloren: $name]";
+            if (_inventory[idx].quantity <= 0) {
+              _inventory.removeAt(idx);
+            }
+          }
         });
-        _scrollToBottom();
-        await _saveGame(); 
-
-        try {
-          final Map<String, dynamic> combatData = jsonDecode(combatDataString);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CombatScreen(
-                enemyName: combatData['enemy'] ?? "Unbekannter Gegner",
-                enemyHp: combatData['hp'] ?? 50,
-              ),
-            ),
-          );
-        } catch (e) {
-          print("Fehler beim Parsen der Kampfdaten: $e");
-        }
-        return; 
-      }
+      } catch (_) {}
     }
-    
+    cleanAnswer = cleanAnswer.replaceAll(removeRegex, '').trim();
+
+    // --- 3. Items aufheben ---
+    final addRegex = RegExp(r'\[ADD_ITEM:(\{.*?\})\]');
+    Iterable<RegExpMatch> addMatches = addRegex.allMatches(cleanAnswer);
+    for (final match in addMatches) {
+      try {
+        final data = jsonDecode(match.group(1)!);
+        String name = data['name'];
+        String desc = data['desc'] ?? "";
+        
+        setState(() {
+          int existingIndex = _inventory.indexWhere((e) => e.name.toLowerCase() == name.toLowerCase());
+          if (existingIndex != -1) {
+            _inventory[existingIndex].quantity++;
+          } else {
+            _inventory.add(InventoryItem(name: name, description: desc, quantity: 1, icon: Icons.star, iconColor: Colors.amber));
+          }
+          cleanAnswer += "\n\n✨ [Gegenstand aufgehoben: $name]";
+        });
+      } catch (_) {}
+    }
+    cleanAnswer = cleanAnswer.replaceAll(addRegex, '').trim();
+
+    // --- 4. Kampf auslesen ---
+    final combatRegex = RegExp(r'\[START_COMBAT:(\{.*?\})\]');
+    Map<String, dynamic>? combatData;
+    if (combatRegex.hasMatch(cleanAnswer)) {
+      try {
+        combatData = jsonDecode(combatRegex.firstMatch(cleanAnswer)!.group(1)!);
+      } catch (_) {}
+    }
+    cleanAnswer = cleanAnswer.replaceAll(combatRegex, '').trim();
+
+    // Text aktualisieren & Lade-Zustand beenden
     setState(() {
-      _messages[loadingIndex] = ChatMessage(text: aiAnswer, isUser: false);
+      _messages[loadingIndex] = ChatMessage(text: cleanAnswer, isUser: false);
       _isLoading = false;
     });
+    
     _scrollToBottom();
     await _saveGame(); 
+
+    // Gegebenenfalls Kampf starten
+    if (combatData != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CombatScreen(
+            enemyName: combatData!['enemy'] ?? "Unbekannter Gegner",
+            enemyHp: combatData!['hp'] ?? 50,
+          ),
+        ),
+      );
+    }
   }
 
   void _scrollToBottom() {
@@ -704,11 +806,12 @@ Schreibe danach absolut nichts mehr!
       drawer: _buildFantasyDrawer(),
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_landschaft.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/hintergrund_landschaft.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: const Color(0xFF1E140A)))),
           Positioned.fill(child: Container(color: const Color(0xFF1E140A).withOpacity(0.35))),
           SafeArea(
             child: Column(
               children: [
+                // --- OBERE LEISTE MIT DYNAMISCHER HP-ANZEIGE ---
                 Padding(
                   padding: const EdgeInsets.only(left: 12.0, right: 16.0, top: 12.0, bottom: 4.0),
                   child: Row(
@@ -721,13 +824,22 @@ Schreibe danach absolut nichts mehr!
                       GestureDetector(
                         onTap: () => _scaffoldKey.currentState?.openDrawer(),
                         child: Container(
-                          padding: const EdgeInsets.all(10), 
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
                           decoration: BoxDecoration(
                             color: const Color(0xFF8A6421).withOpacity(0.85), 
                             borderRadius: BorderRadius.circular(8), 
                             border: Border.all(color: const Color(0xFFC5A059), width: 2)
                           ), 
-                          child: const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26)
+                          child: Row(
+                            children: [
+                              const Icon(Icons.favorite, color: Colors.redAccent, size: 22),
+                              const SizedBox(width: 6),
+                              // Diese Zahl aktualisiert sich jetzt durch setState sofort!
+                              Text("${widget.settings.hp}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 12),
+                              const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26),
+                            ],
+                          )
                         ),
                       ),
                     ],
@@ -847,7 +959,7 @@ class StatusScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
           Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
           Center(
             child: Container(
@@ -866,6 +978,7 @@ class StatusScreen extends StatelessWidget {
                   const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 20, endIndent: 20),
                   const SizedBox(height: 20),
                   _buildStatusRow(Icons.person, "Name", settings.charName),
+                  _buildStatusRow(Icons.favorite, "Lebenspunkte", "${settings.hp} / ${settings.maxHp}"),
                   _buildStatusRow(Icons.wc, "Geschlecht", settings.gender),
                   _buildStatusRow(Icons.landscape, "Welt", settings.setting),
                   _buildStatusRow(Icons.bolt, "Schwierigkeit", settings.difficulty),
@@ -910,7 +1023,7 @@ class InventoryScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
           Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
           Center(
             child: Container(
@@ -1025,7 +1138,7 @@ class CombatScreen extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover)),
+          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
           Positioned.fill(child: Container(color: Colors.red.withOpacity(0.3))), 
           Center(
             child: Container(
@@ -1049,7 +1162,11 @@ class CombatScreen extends StatelessWidget {
                   Text("Lebenspunkte: $enemyHp HP", style: const TextStyle(color: Colors.orangeAccent, fontSize: 18)),
                   const SizedBox(height: 40),
                   ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)
+                    ),
                     onPressed: () => Navigator.pop(context), 
                     child: const Text("Kampf beenden & Fliehen", style: TextStyle(fontSize: 16)),
                   )
