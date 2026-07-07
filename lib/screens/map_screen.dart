@@ -18,7 +18,7 @@ class MapScreen extends StatelessWidget {
 
           // Dunkler Overlay
           Container(
-            color: const Color(0xFF140D07).withOpacity(0.45),
+            color: const Color(0xFF140D07).withValues(alpha: 0.45),
           ),
 
           // Kartenfenster
