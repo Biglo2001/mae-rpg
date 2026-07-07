@@ -289,7 +289,13 @@
       if (!img) { alert('Load an image first.'); return; }
       if (gridW < 1 || gridH < 1) { alert('Set the grid first.'); return; }
       const text = serializeGrid();
-      downloadText('grid.txt', text);
+
+      // Use the loaded image file name if available
+      const file = imageInput.files?.[0];
+      const base = file ? file.name.replace(/\.[^/.]+$/, '') : 'image';
+      const filename = `${base}.maegrid.txt`;
+
+      downloadText(filename, text);
     });
 
     function parseGridText(text) {
