@@ -788,6 +788,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
 
     // Gegebenenfalls Kampf starten
     if (combatData != null) {
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
