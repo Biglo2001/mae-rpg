@@ -50,6 +50,7 @@
     <div class="tile-palette">
       <label><input type="radio" name="attr" value="F" checked /> Forest</label>
       <label><input type="radio" name="attr" value="P" /> Plains</label>
+      <label><input type="radio" name="attr" value="M" /> Mountains</label>
       <label><input type="radio" name="attr" value="O" /> Ocean</label>
     </div>
   </div>
@@ -91,7 +92,7 @@
     let img = null;
 
     // Grid state
-    // tiles[row][col] => "F" | "P" | "O" | "" (empty)
+    // tiles[row][col] => "F" | "P" | "M" | "O" | "" (empty)
     let gridW = 0;
     let gridH = 0;
     let tiles = [];
@@ -102,6 +103,7 @@
     const COLORS = {
       F: 'rgba(34, 139, 34, 0.45)', // Forest green
       P: 'rgba(210, 180, 140, 0.45)', // Plains
+      M: 'rgba(180, 180, 180, 0.45)', // Mountains
       O: 'rgba(30, 144, 255, 0.45)', // Ocean dodgerblue
       '': 'rgba(0,0,0,0)'
     };
@@ -316,7 +318,7 @@
 
       const nextTiles = Array.from({ length: h }, () => Array.from({ length: w }, () => ''));
 
-      const validSet = new Set(['F', 'P', 'O', '.']);
+      const validSet = new Set(['F', 'P', 'M', 'O', '.']);
       for (let r = 0; r < h; r++) {
         const parts = lines[1 + r].split(/\s+/);
         if (parts.length < w) return null;
