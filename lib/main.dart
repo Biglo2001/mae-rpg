@@ -606,8 +606,12 @@ class _ChatScreenState extends State<ChatScreen> {
       String targetName = "";
       if (widget.settings.setting == 'Sci-Fi') {
         targetName = "nanomed-kit";
-      } else if (widget.settings.setting == 'Piraten') targetName = "rum";
-      else targetName = "heiltrank";
+      } else if (widget.settings.setting == 'Piraten') {
+        targetName = "rum";
+      }
+      else {
+        targetName = "heiltrank";
+      }
 
       try {
         final item = _inventory.firstWhere((element) => element.name.toLowerCase().contains(targetName));
