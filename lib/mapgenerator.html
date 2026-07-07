@@ -54,7 +54,7 @@
     </div>
   </div>
 
-  <canvas id="canvas" width="960" height="540"></canvas>
+  <canvas id="canvas" width="540" height="960"></canvas>
   <div class="hint">Click (or click+drag) to paint tiles.</div>
 
   <div class="row" style="margin-top:14px;">
@@ -96,6 +96,9 @@
     let gridH = 0;
     let tiles = [];
 
+    // Where the image is drawn on the canvas (so we map grid clicks correctly)
+    let drawImgRect = { x: 0, y: 0, w: 0, h: 0 };
+
     const COLORS = {
       F: 'rgba(34, 139, 34, 0.45)', // Forest green
       P: 'rgba(210, 180, 140, 0.45)', // Plains
@@ -105,11 +108,6 @@
 
     function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
-    function resizeCanvasToSimple() {
-      // Keep current canvas size (ugly simple version).
-      // If image loaded and canvas is default, we leave it as-is.
-    }
-
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -117,19 +115,34 @@
       ctx.fillStyle = '#f6f6f6';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw image scaled to canvas
+      // Draw image without stretching (letterbox to canvas)
       if (img) {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const imgW = img.naturalWidth || img.width;
+        const imgH = img.naturalHeight || img.height;
+
+        const maxW = canvas.width;
+        const maxH = canvas.height;
+        const scale = Math.min(maxW / imgW, maxH / imgH);
+
+        const w = imgW * scale;
+        const h = imgH * scale;
+        const x = (canvas.width - w) / 2;
+        const y = (canvas.height - h) / 2;
+
+        drawImgRect = { x, y, w, h };
+        ctx.drawImage(img, x, y, w, h);
       } else {
+        drawImgRect = { x: 0, y: 0, w: canvas.width, h: canvas.height };
         ctx.fillStyle = '#666';
         ctx.font = '16px Arial';
         ctx.fillText('Load an image to begin', 16, 26);
       }
 
-      // Draw grid + painted tiles
-      if (gridW > 0 && gridH > 0) {
-        const cellW = canvas.width / gridW;
-        const cellH = canvas.height / gridH;
+      // Draw grid + painted tiles mapped to the drawn image rectangle
+      if (gridW > 0 && gridH > 0 && drawImgRect.w > 0 && drawImgRect.h > 0) {
+        const { x: ix, y: iy, w: iw, h: ih } = drawImgRect;
+        const cellW = iw / gridW;
+        const cellH = ih / gridH;
 
         // Painted tiles overlay
         for (let r = 0; r < gridH; r++) {
@@ -137,24 +150,24 @@
             const v = tiles?.[r]?.[c] ?? '';
             if (v && COLORS[v]) {
               ctx.fillStyle = COLORS[v];
-              ctx.fillRect(c * cellW, r * cellH, cellW, cellH);
+              ctx.fillRect(ix + c * cellW, iy + r * cellH, cellW, cellH);
             }
           }
         }
 
-        // Grid lines (thin)
+        // Grid lines
         ctx.lineWidth = 1;
         ctx.strokeStyle = 'rgba(0,0,0,0.25)';
         ctx.beginPath();
         for (let i = 1; i < gridW; i++) {
-          const x = i * cellW;
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, canvas.height);
+          const x = ix + i * cellW;
+          ctx.moveTo(x, iy);
+          ctx.lineTo(x, iy + ih);
         }
         for (let j = 1; j < gridH; j++) {
-          const y = j * cellH;
-          ctx.moveTo(0, y);
-          ctx.lineTo(canvas.width, y);
+          const y = iy + j * cellH;
+          ctx.moveTo(ix, y);
+          ctx.lineTo(ix + iw, y);
         }
         ctx.stroke();
       }
@@ -178,11 +191,17 @@
       const x = (clientX - rect.left) * (canvas.width / rect.width);
       const y = (clientY - rect.top) * (canvas.height / rect.height);
 
-      const cellW = canvas.width / gridW;
-      const cellH = canvas.height / gridH;
+      const { x: ix, y: iy, w: iw, h: ih } = drawImgRect;
 
-      const col = Math.floor(x / cellW);
-      const row = Math.floor(y / cellH);
+      // Clamp to drawn image area so painting works even if user clicks border padding
+      const localX = clamp(x - ix, 0, iw - 1e-9);
+      const localY = clamp(y - iy, 0, ih - 1e-9);
+
+      const cellW = iw / gridW;
+      const cellH = ih / gridH;
+
+      const col = Math.floor(localX / cellW);
+      const row = Math.floor(localY / cellH);
 
       return { row: clamp(row, 0, gridH - 1), col: clamp(col, 0, gridW - 1) };
     }
@@ -217,7 +236,6 @@
       const newImg = new Image();
       newImg.onload = () => {
         img = newImg;
-        resizeCanvasToSimple();
         draw();
         URL.revokeObjectURL(url);
       };
@@ -239,10 +257,10 @@
     });
 
     function serializeGrid() {
-      // Simple, ugly, but robust:
+      // Format:
       // Line 1: GRIDX <cols> GRIDY <rows>
-      // Then rows of space-separated single-letter values: e.g. F P O
-      // Empty tiles are '.'.
+      // Then rows of space-separated single-letter values: F P O
+      // Empty tiles are '.'
       const lines = [];
       lines.push(`GRIDX ${gridW} GRIDY ${gridH}`);
       for (let r = 0; r < gridH; r++) {
@@ -281,16 +299,13 @@
       const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length < 2) return null;
 
-      // Parse first line: GRIDX <cols> GRIDY <rows>
       const header = lines[0].split(/\s+/);
-      // Expect: ["GRIDX", cols, "GRIDY", rows]
       if (header[0] !== 'GRIDX' || header[2] !== 'GRIDY') return null;
 
       const w = parseInt(header[1], 10);
       const h = parseInt(header[3], 10);
       if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) return null;
 
-      // Parse next h lines
       if (lines.length < 1 + h) return null;
 
       const nextTiles = Array.from({ length: h }, () => Array.from({ length: w }, () => ''));
@@ -315,11 +330,9 @@
       gridH = parsed.h;
       tiles = parsed.tiles;
 
-      // Update inputs
       gridXEl.value = String(gridW);
       gridYEl.value = String(gridH);
 
-      // If no image, we still render grid (with plain background).
       draw();
     }
 
@@ -340,7 +353,6 @@
       applyParsed(parsed);
     });
 
-    // Initial render
     draw();
   </script>
 </body>
