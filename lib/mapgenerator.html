@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Basic Tile Grid Painter</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; color: #111; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+    label { font-size: 14px; }
+    input[type="number"] { width: 90px; }
+    button { padding: 6px 10px; cursor: pointer; }
+    .tile-palette { display: inline-flex; gap: 10px; align-items: center; }
+    .tile-palette input { transform: translateY(1px); }
+    #canvas {
+      border: 1px solid #333;
+      display: block;
+      margin-top: 10px;
+      max-width: 100%;
+    }
+    .hint { font-size: 12px; color: #444; margin-top: 6px; }
+    textarea { width: 100%; height: 140px; margin-top: 10px; }
+    .small { font-size: 12px; color: #333; }
+  </style>
+</head>
+<body>
+  <h2>Tile Grid Painter (Basic)</h2>
+
+  <div class="row">
+    <label>
+      Load image:
+      <input id="imageInput" type="file" accept="image/*" />
+    </label>
+  </div>
+
+  <div class="row">
+    <label>
+      gridX (cols):
+      <input id="gridX" type="number" min="1" step="1" value="16" />
+    </label>
+    <label>
+      gridY (rows):
+      <input id="gridY" type="number" min="1" step="1" value="12" />
+    </label>
+    <button id="setGridBtn">Set Grid</button>
+    <button id="clearBtn" title="Clear tile assignments to empty">Clear</button>
+  </div>
+
+  <div class="row">
+    <div class="tile-palette">
+      <label><input type="radio" name="attr" value="F" checked /> Forest</label>
+      <label><input type="radio" name="attr" value="P" /> Plains</label>
+      <label><input type="radio" name="attr" value="M" /> Mountains</label>
+      <label><input type="radio" name="attr" value="O" /> Ocean</label>
+    </div>
+  </div>
+
+  <canvas id="canvas" width="540" height="960"></canvas>
+  <div class="hint">Click (or click+drag) to paint tiles.</div>
+
+  <div class="row" style="margin-top:14px;">
+    <button id="exportBtn">Export Grid (.txt)</button>
+    <label class="small" style="margin-left:8px;">
+      Import file:
+      <input id="importFile" type="file" accept=".txt,text/plain" />
+    </label>
+    <button id="applyImportBtn" title="Apply pasted import text">Import from Text</button>
+  </div>
+
+  <textarea id="importText" placeholder="Paste exported grid text here, then click 'Import from Text'."></textarea>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const imageInput = document.getElementById('imageInput');
+    const gridXEl = document.getElementById('gridX');
+    const gridYEl = document.getElementById('gridY');
+    const setGridBtn = document.getElementById('setGridBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    const importFile = document.getElementById('importFile');
+    const importText = document.getElementById('importText');
+    const applyImportBtn = document.getElementById('applyImportBtn');
+
+    const getSelectedAttr = () => {
+      const r = document.querySelector('input[name="attr"]:checked');
+      return r ? r.value : 'F';
+    };
+
+    let img = null;
+
+    // Grid state
+    // tiles[row][col] => "F" | "P" | "M" | "O" | "" (empty)
+    let gridW = 0;
+    let gridH = 0;
+    let tiles = [];
+
+    // Where the image is drawn on the canvas (so we map grid clicks correctly)
+    let drawImgRect = { x: 0, y: 0, w: 0, h: 0 };
+
+    const COLORS = {
+      F: 'rgba(34, 139, 34, 0.45)', // Forest green
+      P: 'rgba(210, 180, 140, 0.45)', // Plains
+      M: 'rgba(180, 180, 180, 0.45)', // Mountains
+      O: 'rgba(30, 144, 255, 0.45)', // Ocean dodgerblue
+      '': 'rgba(0,0,0,0)'
+    };
+
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Background
+      ctx.fillStyle = '#f6f6f6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw image without stretching (letterbox to canvas)
+      if (img) {
+        const imgW = img.naturalWidth || img.width;
+        const imgH = img.naturalHeight || img.height;
+
+        const maxW = canvas.width;
+        const maxH = canvas.height;
+        const scale = Math.min(maxW / imgW, maxH / imgH);
+
+        const w = imgW * scale;
+        const h = imgH * scale;
+        const x = (canvas.width - w) / 2;
+        const y = (canvas.height - h) / 2;
+
+        drawImgRect = { x, y, w, h };
+        ctx.drawImage(img, x, y, w, h);
+      } else {
+        drawImgRect = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+        ctx.fillStyle = '#666';
+        ctx.font = '16px Arial';
+        ctx.fillText('Load an image to begin', 16, 26);
+      }
+
+      // Draw grid + painted tiles mapped to the drawn image rectangle
+      if (gridW > 0 && gridH > 0 && drawImgRect.w > 0 && drawImgRect.h > 0) {
+        const { x: ix, y: iy, w: iw, h: ih } = drawImgRect;
+        const cellW = iw / gridW;
+        const cellH = ih / gridH;
+
+        // Painted tiles overlay
+        for (let r = 0; r < gridH; r++) {
+          for (let c = 0; c < gridW; c++) {
+            const v = tiles?.[r]?.[c] ?? '';
+            if (v && COLORS[v]) {
+              ctx.fillStyle = COLORS[v];
+              ctx.fillRect(ix + c * cellW, iy + r * cellH, cellW, cellH);
+            }
+          }
+        }
+
+        // Grid lines
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        for (let i = 1; i < gridW; i++) {
+          const x = ix + i * cellW;
+          ctx.moveTo(x, iy);
+          ctx.lineTo(x, iy + ih);
+        }
+        for (let j = 1; j < gridH; j++) {
+          const y = iy + j * cellH;
+          ctx.moveTo(ix, y);
+          ctx.lineTo(ix + iw, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function initGrid() {
+      const x = parseInt(gridXEl.value, 10);
+      const y = parseInt(gridYEl.value, 10);
+
+      if (!Number.isFinite(x) || !Number.isFinite(y) || x < 1 || y < 1) return;
+
+      gridW = x;
+      gridH = y;
+      tiles = Array.from({ length: gridH }, () => Array.from({ length: gridW }, () => ''));
+
+      draw();
+    }
+
+    function canvasToCell(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (clientX - rect.left) * (canvas.width / rect.width);
+      const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+      const { x: ix, y: iy, w: iw, h: ih } = drawImgRect;
+
+      // Clamp to drawn image area so painting works even if user clicks border padding
+      const localX = clamp(x - ix, 0, iw - 1e-9);
+      const localY = clamp(y - iy, 0, ih - 1e-9);
+
+      const cellW = iw / gridW;
+      const cellH = ih / gridH;
+
+      const col = Math.floor(localX / cellW);
+      const row = Math.floor(localY / cellH);
+
+      return { row: clamp(row, 0, gridH - 1), col: clamp(col, 0, gridW - 1) };
+    }
+
+    function paintAt(clientX, clientY, attr) {
+      if (!img || gridW < 1 || gridH < 1 || !tiles) return;
+      const { row, col } = canvasToCell(clientX, clientY);
+      tiles[row][col] = attr;
+      draw();
+    }
+
+    let isPainting = false;
+
+    canvas.addEventListener('mousedown', (e) => {
+      isPainting = true;
+      paintAt(e.clientX, e.clientY, getSelectedAttr());
+    });
+
+    window.addEventListener('mouseup', () => { isPainting = false; });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isPainting) return;
+      paintAt(e.clientX, e.clientY, getSelectedAttr());
+    });
+
+    // Image load
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files?.[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+      const newImg = new Image();
+      newImg.onload = () => {
+        img = newImg;
+        draw();
+        URL.revokeObjectURL(url);
+      };
+      newImg.src = url;
+    });
+
+    setGridBtn.addEventListener('click', () => {
+      if (!img) {
+        alert('Load an image first.');
+        return;
+      }
+      initGrid();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if (gridW < 1 || gridH < 1) return;
+      for (let r = 0; r < gridH; r++) for (let c = 0; c < gridW; c++) tiles[r][c] = '';
+      draw();
+    });
+
+    function serializeGrid() {
+      // Format:
+      // Line 1: GRIDX <cols> GRIDY <rows>
+      // Then rows of space-separated single-letter values: F P O
+      // Empty tiles are '.'
+      const lines = [];
+      lines.push(`GRIDX ${gridW} GRIDY ${gridH}`);
+      for (let r = 0; r < gridH; r++) {
+        const rowVals = [];
+        for (let c = 0; c < gridW; c++) {
+          const v = tiles?.[r]?.[c] ?? '';
+          rowVals.push(v ? v : '.');
+        }
+        lines.push(rowVals.join(' '));
+      }
+      return lines.join('\n');
+    }
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 0);
+    }
+
+    exportBtn.addEventListener('click', () => {
+      if (!img) { alert('Load an image first.'); return; }
+      if (gridW < 1 || gridH < 1) { alert('Set the grid first.'); return; }
+      const text = serializeGrid();
+
+      // Use the loaded image file name if available
+      const file = imageInput.files?.[0];
+      const base = file ? file.name.replace(/\.[^/.]+$/, '') : 'image';
+      const filename = `${base}.maegrid.txt`;
+
+      downloadText(filename, text);
+    });
+
+    function parseGridText(text) {
+      const cleaned = text.trim().replace(/\r/g, '');
+      if (!cleaned) return null;
+
+      const lines = cleaned.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) return null;
+
+      const header = lines[0].split(/\s+/);
+      if (header[0] !== 'GRIDX' || header[2] !== 'GRIDY') return null;
+
+      const w = parseInt(header[1], 10);
+      const h = parseInt(header[3], 10);
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) return null;
+
+      if (lines.length < 1 + h) return null;
+
+      const nextTiles = Array.from({ length: h }, () => Array.from({ length: w }, () => ''));
+
+      const validSet = new Set(['F', 'P', 'M', 'O', '.']);
+      for (let r = 0; r < h; r++) {
+        const parts = lines[1 + r].split(/\s+/);
+        if (parts.length < w) return null;
+
+        for (let c = 0; c < w; c++) {
+          const p = parts[c];
+          if (!validSet.has(p)) return null;
+          nextTiles[r][c] = (p === '.') ? '' : p;
+        }
+      }
+
+      return { w, h, tiles: nextTiles };
+    }
+
+    function applyParsed(parsed) {
+      gridW = parsed.w;
+      gridH = parsed.h;
+      tiles = parsed.tiles;
+
+      gridXEl.value = String(gridW);
+      gridYEl.value = String(gridH);
+
+      draw();
+    }
+
+    applyImportBtn.addEventListener('click', () => {
+      const parsed = parseGridText(importText.value);
+      if (!parsed) { alert('Could not parse grid text.'); return; }
+      applyParsed(parsed);
+    });
+
+    importFile.addEventListener('change', async () => {
+      const file = importFile.files?.[0];
+      if (!file) return;
+
+      const text = await file.text();
+      importText.value = text;
+      const parsed = parseGridText(text);
+      if (!parsed) { alert('Could not parse imported file.'); return; }
+      applyParsed(parsed);
+    });
+
+    draw();
+  </script>
+</body>
+</html>

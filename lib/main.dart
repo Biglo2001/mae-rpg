@@ -110,7 +110,7 @@ class StartScreen extends StatelessWidget {
             child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black)),
           ),
           Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.4)),
+            child: Container(color: Colors.black.withValues(alpha: 0.4),),
           ),
           Center(
             child: Column(
@@ -157,7 +157,7 @@ class StartScreen extends StatelessWidget {
   Widget _buildMenuButton({required String text, required VoidCallback onTap}) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF8A6421).withOpacity(0.9),
+        backgroundColor: const Color(0xFF8A6421).withValues(alpha: 0.9),
         foregroundColor: const Color(0xFFF4EAD4),
         minimumSize: const Size(270, 55),
         shape: RoundedRectangleBorder(
@@ -283,7 +283,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
       body: Stack(
         children: [
           Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -410,7 +410,7 @@ class _SetupScreenState extends State<SetupScreen> {
       body: Stack(
         children: [
           Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
@@ -604,9 +604,14 @@ class _ChatScreenState extends State<ChatScreen> {
     
     if (lowerText.contains("nutze") || lowerText.contains("trinke") || lowerText.contains("heile")) {
       String targetName = "";
-      if (widget.settings.setting == 'Sci-Fi') targetName = "nanomed-kit";
-      else if (widget.settings.setting == 'Piraten') targetName = "rum";
-      else targetName = "heiltrank";
+      if (widget.settings.setting == 'Sci-Fi') {
+        targetName = "nanomed-kit";
+      } else if (widget.settings.setting == 'Piraten') {
+        targetName = "rum";
+      }
+      else {
+        targetName = "heiltrank";
+      }
 
       try {
         final item = _inventory.firstWhere((element) => element.name.toLowerCase().contains(targetName));
@@ -783,12 +788,13 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
 
     // Gegebenenfalls Kampf starten
     if (combatData != null) {
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => CombatScreen(
             enemyName: combatData!['enemy'] ?? "Unbekannter Gegner",
-            enemyHp: combatData!['hp'] ?? 50,
+            enemyHp: combatData['hp'] ?? 50,
           ),
         ),
       );
@@ -807,7 +813,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
       body: Stack(
         children: [
           Positioned.fill(child: Image.asset('assets/hintergrund_landschaft.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: const Color(0xFF1E140A)))),
-          Positioned.fill(child: Container(color: const Color(0xFF1E140A).withOpacity(0.35))),
+          Positioned.fill(child: Container(color: const Color(0xFF1E140A).withValues(alpha: 0.35))),
           SafeArea(
             child: Column(
               children: [
@@ -826,7 +832,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8A6421).withOpacity(0.85), 
+                            color: const Color(0xFF8A6421).withValues(alpha: 0.85), 
                             borderRadius: BorderRadius.circular(8), 
                             border: Border.all(color: const Color(0xFFC5A059), width: 2)
                           ), 
@@ -853,7 +859,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF2E3C6).withOpacity(_isLoading ? 0.5 : 0.9), 
+                            color: const Color(0xFFF2E3C6).withValues(alpha: _isLoading ? 0.5 : 0.9), 
                             borderRadius: BorderRadius.circular(6), 
                             border: Border.all(color: const Color(0xFF7A5821), width: 2)
                           ), 
@@ -960,7 +966,7 @@ class StatusScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.85,
@@ -969,7 +975,7 @@ class StatusScreen extends StatelessWidget {
                 color: const Color(0xFFF4EAD4),
                 border: Border.all(color: const Color(0xFF8A6421), width: 4),
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15)],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 15)],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1024,7 +1030,7 @@ class InventoryScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withOpacity(0.5))),
+          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.9,
@@ -1034,7 +1040,7 @@ class InventoryScreen extends StatelessWidget {
                 color: const Color(0xFFF4EAD4),
                 border: Border.all(color: const Color(0xFF8A6421), width: 4),
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20)],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 20)],
               ),
               child: Column(
                 children: [
@@ -1051,7 +1057,7 @@ class InventoryScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFE3C3),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFBA9355).withOpacity(0.5), width: 1.5),
+                            border: Border.all(color: const Color(0xFFBA9355).withValues(alpha: 0.5), width: 1.5),
                           ),
                           child: ListTile(
                             leading: Container(
@@ -1139,7 +1145,7 @@ class CombatScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.red.withOpacity(0.3))), 
+          Positioned.fill(child: Container(color: Colors.red.withValues(alpha: 0.3))), 
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.85,

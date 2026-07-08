@@ -1,0 +1,5 @@
+GRIDX 6 GRIDY 4
+P F P F F P
+P P F F O O
+O O O P P O
+P P O O O O
