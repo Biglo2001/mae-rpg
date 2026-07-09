@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Für das Kopieren in die Zwischenablage
+import 'package:flutter_application_1/Kampfsystem/battle_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/map_screen.dart';
+import 'Kampfsystem/spieler.dart';
+import 'Kampfsystem/start_initialirung.dart';
+
 
 void main() {
   runApp(const ChatBotApp());
@@ -21,6 +25,7 @@ class ChatBotApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF1E140A),
         primaryColor: const Color(0xFFC5A059),
       ),
+
       home: const StartScreen(),
     );
   }
@@ -41,8 +46,7 @@ class GameSettings {
   final String difficulty;
   final String setting;
   final bool usePredefinedAdventure;
-  int hp;
-  int maxHp;
+  Spieler spieler;
 
   GameSettings({
     required this.id,
@@ -50,9 +54,8 @@ class GameSettings {
     required this.gender,
     required this.difficulty,
     required this.setting,
+    required this.spieler,
     this.usePredefinedAdventure = false,
-    this.hp = 100,
-    this.maxHp = 100,
   });
 
   Map<String, dynamic> toJson() => {
@@ -61,9 +64,8 @@ class GameSettings {
         "gender": gender,
         "difficulty": difficulty,
         "setting": setting,
+        "spieler": spieler.toJson(),
         "adventure_type": usePredefinedAdventure ? "Vorgegeben" : "Prozedural",
-        "hp": hp,
-        "max_hp": maxHp,
       };
 
   factory GameSettings.fromJson(Map<String, dynamic> json) {
@@ -73,14 +75,13 @@ class GameSettings {
       gender: json['gender'] ?? "Divers",
       difficulty: json['difficulty'] ?? "Mittel",
       setting: json['setting'] ?? "Mittelalter",
+      spieler: Spieler.fromJson(json['spieler']),
       usePredefinedAdventure: json['adventure_type'] == "Vorgegeben",
-      hp: json['hp'] ?? 100,
-      maxHp: json['max_hp'] ?? 100,
     );
   }
 }
 
-class InventoryItem {
+class InventoryItem { //TODO inventar muss auf Spieler angepasst werden
   final String name;
   final String description;
   int quantity; 
@@ -194,6 +195,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
 
   Future<void> _loadSaveGameList() async {
     final prefs = await SharedPreferences.getInstance();
+    //await prefs.clear(); //TODO Alte Speicherdaten Stimmen nicht mit der Neuen version überein. Bei auftretenden fehlern einmal Zeile entkommentieren --> App starten und Spiele Laden --> App schließen --> zeile zum Kommentar machen
     final keys = prefs.getKeys().where((key) => key.startsWith('savegame_'));
     
     List<Map<String, dynamic>> loadedSaves = [];
@@ -202,7 +204,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
         final data = jsonDecode(prefs.getString(key) ?? '');
         loadedSaves.add(data);
       } catch (e) {
-        print("Fehler beim Parsen von Speicherstand $key: $e");
+        debugPrint("Fehler beim Parsen von Speicherstand $key: $e");
       }
     }
 
@@ -254,6 +256,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
         gender: oldSettings.gender,
         difficulty: oldSettings.difficulty,
         setting: oldSettings.setting,
+        spieler: oldSettings.spieler,
         usePredefinedAdventure: oldSettings.usePredefinedAdventure,
       );
 
@@ -463,8 +466,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           difficulty: _selectedDifficulty,
                           setting: _selectedSetting,
                           usePredefinedAdventure: _isPredefined,
-                          hp: 100, 
-                          maxHp: 100,
+                          spieler: StartInitialisierung.erstelleSpieler(_nameController.text.isEmpty ? "Namenloser" : _nameController.text),
                         );
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
                       },
@@ -506,8 +508,9 @@ class _SetupScreenState extends State<SetupScreen> {
 class ChatScreen extends StatefulWidget {
   final GameSettings settings;
   final Map<String, dynamic>? initialSaveData; 
+  final int? kampfAusgang;
 
-  const ChatScreen({super.key, required this.settings, this.initialSaveData});
+  const ChatScreen({super.key, required this.settings, this.initialSaveData, this.kampfAusgang});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -519,7 +522,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
-  final String _apiKey = "";
+  final String _apiKey = ""; //TODO API key eingeben
   
   late List<ChatMessage> _messages;
   late List<InventoryItem> _inventory;
@@ -534,6 +537,16 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
       _initInventory();
       _saveGame(); 
+    }
+    //TODO muss überarbeitet werden sodass nur die antwort angezeigt wird (Neu funktion erstellen die aufgerufen wird)
+    if(widget.kampfAusgang != null) {
+      if(widget.kampfAusgang == 0) {
+        _sendMessage("Der Spieler hat den Kampf gewonnen. Schreib eine Siegesnarchicht.");
+      } else if(widget.kampfAusgang == 1) {
+        _sendMessage("Der Spieler ist aus dem Kampf entkommen. Schreib eine Narchicht wie er entkommen ist.");
+      } else if(widget.kampfAusgang == 2) {
+        _sendMessage("Der Spieler hat den Kampf verloren. Schreib eine Narchicht wie er Überlebt."); //TODO bei niederlage Spiel vorbei
+      }
     }
   }
 
@@ -618,7 +631,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (item.quantity > 0) {
           setState(() {
             item.quantity--;
-            widget.settings.hp = (widget.settings.hp + 30).clamp(0, widget.settings.maxHp);
+            widget.settings.spieler.leben = (widget.settings.spieler.leben + 30).clamp(0, widget.settings.spieler.maxleben);
             _messages.add(ChatMessage(text: "Du benutzt ${item.name}. Deine Wunden schließen sich (+30 HP).", isUser: false));
             
             // WICHTIG: Wenn die Menge auf 0 fällt, löschen wir das Item komplett!
@@ -651,7 +664,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final systemInstruction = """
 Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
-Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.hp}/${widget.settings.maxHp}.
+Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
 
 Deine Aufgaben:
 1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
@@ -711,13 +724,13 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     String aiAnswer = await _fetchRealAIResponse(text);
     String cleanAnswer = aiAnswer;
 
-    // --- 1. HP Updates verarbeiten ---
+    // --- 1. HP Updates verarbeiten --- //TODO inventar muss auf Spieler inventar angepasst werden
     final hpRegex = RegExp(r'\[UPDATE_HP:([+-]?\d+)\]');
     Iterable<RegExpMatch> hpMatches = hpRegex.allMatches(cleanAnswer);
     for (final match in hpMatches) {
       int hpChange = int.tryParse(match.group(1) ?? '0') ?? 0;
       setState(() {
-        widget.settings.hp = (widget.settings.hp + hpChange).clamp(0, widget.settings.maxHp);
+        widget.settings.spieler.leben = (widget.settings.spieler.leben + hpChange).clamp(0, widget.settings.spieler.maxleben);
       });
     }
     cleanAnswer = cleanAnswer.replaceAll(hpRegex, '').trim();
@@ -745,7 +758,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     }
     cleanAnswer = cleanAnswer.replaceAll(removeRegex, '').trim();
 
-    // --- 3. Items aufheben ---
+    // --- 3. Items aufheben --- //TODO inventar muss auf Spieler inventar angepasst werden
     final addRegex = RegExp(r'\[ADD_ITEM:(\{.*?\})\]');
     Iterable<RegExpMatch> addMatches = addRegex.allMatches(cleanAnswer);
     for (final match in addMatches) {
@@ -792,10 +805,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => CombatScreen(
-            enemyName: combatData!['enemy'] ?? "Unbekannter Gegner",
-            enemyHp: combatData['hp'] ?? 50,
-          ),
+          builder: (context) => BattleScreen(settings: widget.settings, initialSaveData: widget.initialSaveData, cleanAnswer: cleanAnswer),
         ),
       );
     }
@@ -841,7 +851,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
                               const Icon(Icons.favorite, color: Colors.redAccent, size: 22),
                               const SizedBox(width: 6),
                               // Diese Zahl aktualisiert sich jetzt durch setState sofort!
-                              Text("${widget.settings.hp}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text("${widget.settings.spieler.leben}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 12),
                               const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26),
                             ],
@@ -955,7 +965,8 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
 }
 
 // --- STATUS SCREEN ---
-
+//Alte Stateless version(bereits auf attribute und attacken angepasst)
+/*
 class StatusScreen extends StatelessWidget {
   final GameSettings settings;
   const StatusScreen({super.key, required this.settings});
@@ -984,11 +995,19 @@ class StatusScreen extends StatelessWidget {
                   const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 20, endIndent: 20),
                   const SizedBox(height: 20),
                   _buildStatusRow(Icons.person, "Name", settings.charName),
-                  _buildStatusRow(Icons.favorite, "Lebenspunkte", "${settings.hp} / ${settings.maxHp}"),
-                  _buildStatusRow(Icons.wc, "Geschlecht", settings.gender),
-                  _buildStatusRow(Icons.landscape, "Welt", settings.setting),
-                  _buildStatusRow(Icons.bolt, "Schwierigkeit", settings.difficulty),
+                  _buildStatusRow(Icons.favorite, "Lebenspunkte", "${settings.spieler.leben} / ${settings.spieler.maxleben}"),
+                  _buildStatusRow(Icons.battery_full, "Ausdauer", "${settings.spieler.ausdauer} / ${settings.spieler.maxausdauer}"),
+                  _buildStatusRow(Icons.refresh, "Ausdauerregeneration", "${settings.spieler.ausdauerregeneration}"),
+                  _buildStatusRow(Icons.shield, "Verteidigung", "${settings.spieler.verteidigung}"),
+                  _buildStatusRow(Icons.bolt, "Geschwindigkeit", "${settings.spieler.geschwindigkeit}"),
+                  _buildStatusRow(Icons.sports_mma, "Stärke", "${settings.spieler.staerke}"),
+
                   const SizedBox(height: 30),
+
+                  _buildAttackenListe(),
+
+                  const SizedBox(height: 30),
+
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421), foregroundColor: const Color(0xFFF4EAD4), padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
                     onPressed: () => Navigator.pop(context),
@@ -1016,10 +1035,480 @@ class StatusScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildAttackenListe() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              color: Color(0xFF8A6421),
+            ),
+            SizedBox(width: 8),
+            Text(
+              "Attacken",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D1E10),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        Container(
+          height: 220,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            border: Border.all(
+              color: const Color(0xFF8A6421),
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: settings.spieler.attacken.alleAttacken.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Keine Attacken vorhanden",
+                    style: TextStyle(
+                      color: Color(0xFF2D1E10),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount:
+                      settings.spieler.attacken.alleAttacken.length,
+                  itemBuilder: (context, index) {
+                    final attacke =
+                        settings.spieler.attacken.alleAttacken[index];
+
+                    return Card(
+                      color: const Color(0xFFF4EAD4),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          attacke.aoe
+                                ? Icons.blur_on
+                                : attacke.aufgegner
+                                    ? Icons.gps_fixed
+                                    : Icons.healing,
+                          color: const Color(0xFF8A6421),
+                        ),
+                        title: Text(
+                          attacke.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black
+                          ),
+                        ),
+                        subtitle: Text(
+                          "${attacke.beschreibung}\n"
+                          "Kraft: ${attacke.kraft}\n"
+                          "Ausdauer Kosten: ${attacke.kosten}",
+                          style: const TextStyle(
+                            color: Colors.black
+                          ),
+                        ),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                          ),
+                          onPressed: () =>
+                              _attackeLoeschenDialog(index),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  
+  Future<void> _attackeLoeschenDialog(int index) async {
+    final attacke =
+        settings.spieler.attacken.alleAttacken[index];
+
+    final bool? loeschen = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Attacke entfernen"),
+          content: Text(
+            'Möchtest du die Attacke "${attacke.name}" wirklich entfernen?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Nein"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("Ja"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (loeschen == true) {
+      setState(() {
+        settings.spieler.attacken.AttackeLoeschen(index);
+      });
+    }
+  }
+}
+*/
+
+class StatusScreen extends StatefulWidget {
+  final GameSettings settings;
+
+  const StatusScreen({
+    super.key,
+    required this.settings,
+  });
+
+  @override
+  State<StatusScreen> createState() => _StatusScreenState();
+}
+
+class _StatusScreenState extends State<StatusScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/hintergrund_pergament.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (c, e, s) =>
+                  Container(color: Colors.black),
+            ),
+          ),
+
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.5),
+            ),
+          ),
+
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4EAD4),
+                border: Border.all(
+                  color: const Color(0xFF8A6421),
+                  width: 4,
+                ),
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 15,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "HELDEN-STATUS",
+                    style: TextStyle(
+                      color: Color(0xFF2D1E10),
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+
+                  const Divider(
+                    color: Color(0xFF8A6421),
+                    thickness: 2,
+                    indent: 20,
+                    endIndent: 20,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  _buildStatusRow(
+                    Icons.person,
+                    "Name",
+                    widget.settings.charName,
+                  ),
+
+                  _buildStatusRow(
+                    Icons.favorite,
+                    "Lebenspunkte",
+                    "${widget.settings.spieler.leben} / ${widget.settings.spieler.maxleben}",
+                  ),
+
+                  _buildStatusRow(
+                    Icons.battery_full,
+                    "Ausdauer",
+                    "${widget.settings.spieler.ausdauer} / ${widget.settings.spieler.maxausdauer}",
+                  ),
+
+                  _buildStatusRow(
+                    Icons.refresh,
+                    "Ausdauerregeneration",
+                    "${widget.settings.spieler.ausdauerregeneration}",
+                  ),
+
+                  _buildStatusRow(
+                    Icons.shield,
+                    "Verteidigung",
+                    "${widget.settings.spieler.verteidigung}",
+                  ),
+
+                  _buildStatusRow(
+                    Icons.bolt,
+                    "Geschwindigkeit",
+                    "${widget.settings.spieler.geschwindigkeit}",
+                  ),
+
+                  _buildStatusRow(
+                    Icons.sports_mma,
+                    "Stärke",
+                    "${widget.settings.spieler.staerke}",
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  _buildAttackenListe(),
+
+                  const SizedBox(height: 30),
+
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8A6421),
+                      foregroundColor: const Color(0xFFF4EAD4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 15,
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Zurück zum Abenteuer"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusRow(
+    IconData icon,
+    String label,
+    String value,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF8A6421),
+            size: 28,
+          ),
+
+          const SizedBox(width: 15),
+
+          Text(
+            "$label: ",
+            style: const TextStyle(
+              color: Color(0xFF5C4018),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF2D1E10),
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttackenListe() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              color: Color(0xFF8A6421),
+            ),
+            SizedBox(width: 8),
+            Text(
+              "Attacken",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D1E10),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        Container(
+          height: 220,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            border: Border.all(
+              color: const Color(0xFF8A6421),
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child:
+              widget.settings.spieler.attacken.alleAttacken.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "Keine Attacken vorhanden",
+                        style: TextStyle(
+                          color: Color(0xFF2D1E10),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: widget
+                          .settings
+                          .spieler
+                          .attacken
+                          .alleAttacken
+                          .length,
+                      itemBuilder: (context, index) {
+                        final attacke = widget
+                            .settings
+                            .spieler
+                            .attacken
+                            .alleAttacken[index];
+
+                        return Card(
+                          color: const Color(0xFFF4EAD4),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          child: ListTile(
+                            leading: Icon(
+                              attacke.aoe
+                                  ? Icons.blur_on
+                                  : attacke.aufgegner
+                                      ? Icons.gps_fixed
+                                      : Icons.healing,
+                              color: const Color(0xFF8A6421),
+                            ),
+
+                            title: Text(
+                              attacke.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+
+                            subtitle: Text(
+                              "${attacke.beschreibung}\n"
+                              "Kraft: ${attacke.kraft}\n"
+                              "Ausdauer Kosten: ${attacke.kosten}",
+                              style: const TextStyle(
+                                color: Colors.black,
+                              ),
+                            ),
+
+                            isThreeLine: true,
+
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                              ),
+                              onPressed: () =>
+                                  _attackeLoeschenDialog(index),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _attackeLoeschenDialog(int index) async {
+    final attacke =
+        widget.settings.spieler.attacken.alleAttacken[index];
+
+    final bool? loeschen = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Attacke entfernen"),
+          content: Text(
+            'Möchtest du die Attacke "${attacke.name}" wirklich entfernen?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, false),
+              child: const Text("Nein"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              onPressed: () =>
+                  Navigator.pop(dialogContext, true),
+              child: const Text("Ja"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (loeschen == true) {
+      setState(() {
+        widget.settings.spieler.attacken.attackeLoeschen(index);
+      });
+    }
+  }
 }
 
 // --- INVENTAR SCREEN ---
-
+//TODO Inventar muss auf Spieler angepasst werden
 class InventoryScreen extends StatelessWidget {
   final List<InventoryItem> inventory;
   const InventoryScreen({super.key, required this.inventory});
@@ -1128,7 +1617,7 @@ class GameMenuDetailScreen extends StatelessWidget {
 }
 
 // --- KAMPF SCREEN ---
-
+//TODO kann entfernt werden
 class CombatScreen extends StatelessWidget {
   final String enemyName;
   final int enemyHp;
