@@ -171,10 +171,22 @@ class _LevelUpScreenState extends State<LevelUpScreen> {
                 ),
                 const SizedBox(height: 8),
                 const SizedBox(height: 8),
-                Text("Kraft: ${attacke.kraft}"),
-                Text("Kosten: ${attacke.kosten}"),
-                Text("AOE: ${attacke.aoe}"),
-                Text(attacke.aufgegner ? "Ziel: Gegner" : "Ziel: Selbst"),
+                Text(
+                  "Kraft: ${attacke.kraft}",
+                  style: TextStyle(color: Colors.black),
+                ),
+                Text(
+                  "Kosten: ${attacke.kosten}",
+                  style: TextStyle(color: Colors.black),
+                ),
+                Text(
+                  "AOE: ${attacke.aoe}",
+                  style: TextStyle(color: Colors.black),
+                ),
+                Text(
+                  attacke.aufgegner ? "Ziel: Gegner" : "Ziel: Selbst",
+                  style: TextStyle(color: Colors.black),
+                ),
               ],
             ),
           ),
