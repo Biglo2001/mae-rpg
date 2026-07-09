@@ -59,7 +59,11 @@ class Spieler {
       'geschwindigkeit': geschwindigkeit,
       'stärke': staerke,
       'bisturn': bisturn,
+  
+      'attacken': attacken.toJson()['attacken'],
+      'items': items.toJson(),
 
+      /*
       // Attacken
       'attacken': attacken.alleAttacken.map((a) => {
             'name': a.name,
@@ -77,6 +81,7 @@ class Spieler {
             'aufgegner': i.aufgegner,
             'aoe': i.aoe,
           }).toList(),
+          */
     };
   }
   //FromJson
@@ -96,7 +101,7 @@ class Spieler {
 
       attacken: AttackenListe.fromJson(json['attacken']),
       items: ItemListe.fromJson(json['items']),
+
     );
   }
-
 }
