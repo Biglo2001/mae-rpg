@@ -1,3 +1,4 @@
+import 'package:flutter_application_1/Kampfsystem/start_initialirung.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ERSETZE 'dein_projekt_name' durch deinen tatsächlichen Projektnamen
 import 'package:flutter_application_1/main.dart'; 
@@ -14,8 +15,7 @@ void main() {
         difficulty: 'Schwer',
         setting: 'Mittelalter',
         usePredefinedAdventure: true,
-        hp: 85,
-        maxHp: 100,
+        spieler: StartInitialisierung.erstelleSpieler("Hallo Welt"),
       );
 
       // 2. Act: Methode ausführen
@@ -55,8 +55,6 @@ void main() {
       expect(settings.difficulty, 'Leicht');
       expect(settings.setting, 'Sci-Fi');
       expect(settings.usePredefinedAdventure, false);
-      expect(settings.hp, 50);
-      expect(settings.maxHp, 120);
     });
   });
 }

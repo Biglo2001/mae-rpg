@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/Kampfsystem/start_initialirung.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ERSETZE 'dein_projekt_name' durch deinen tatsächlichen Projektnamen
 import 'package:flutter_application_1/main.dart'; 
@@ -12,8 +13,7 @@ void main() {
       gender: 'Männlich',
       difficulty: 'Mittel',
       setting: 'Mittelalter',
-      hp: 75,
-      maxHp: 100,
+      spieler: StartInitialisierung.erstelleSpieler("Hallo Welt"),
     );
 
     // 2. Act: Das Widget in der Testumgebung rendern
