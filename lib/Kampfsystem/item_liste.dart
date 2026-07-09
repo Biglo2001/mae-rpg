@@ -29,16 +29,21 @@ class ItemListe {
   }
 
   // ✅ fromJson
-  factory ItemListe.fromJson(List<dynamic> json) {
+  factory ItemListe.fromJson(List<dynamic>? json) {
     ItemListe itemListe = ItemListe();
 
+    if (json == null) {
+      return itemListe;
+    }
+
     for (var itemJson in json) {
-      itemListe.addItem(
-        Item.fromJson(itemJson as Map<String, dynamic>),
-      );
+      if (itemJson != null) {
+        itemListe.addItem(
+          Item.fromJson(Map<String, dynamic>.from(itemJson)),
+        );
+      }
     }
 
     return itemListe;
   }
-
 }

@@ -15,9 +15,8 @@ void main() {
         difficulty: 'Schwer',
         setting: 'Mittelalter',
         usePredefinedAdventure: true,
-        spieler: StartInitialisierung.erstelleSpieler("Hallo Welt"),
+        spieler: StartInitialisierung.erstelleSpieler("Thorin"),
       );
-
       // 2. Act: Methode ausführen
       final json = settings.toJson();
 
@@ -28,8 +27,6 @@ void main() {
       expect(json['difficulty'], 'Schwer');
       expect(json['setting'], 'Mittelalter');
       expect(json['adventure_type'], 'Vorgegeben');
-      expect(json['hp'], 85);
-      expect(json['max_hp'], 100);
     });
 
     test('Sollte GameSettings korrekt aus einer JSON-Map laden (fromJson)', () {
@@ -41,8 +38,7 @@ void main() {
         'difficulty': 'Leicht',
         'setting': 'Sci-Fi',
         'adventure_type': 'Prozedural',
-        'hp': 50,
-        'max_hp': 120,
+        'spieler': StartInitialisierung.erstelleSpieler("Elyra").toJson(),
       };
 
       // 2. Act: Instanz über Factory-Methode erstellen

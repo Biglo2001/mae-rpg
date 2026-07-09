@@ -32,13 +32,19 @@ class AttackenListe {
   }
 
   // ✅ fromJson
-  factory AttackenListe.fromJson(List<dynamic> json) {
+  factory AttackenListe.fromJson(List<dynamic>? json) {
     AttackenListe liste = AttackenListe();
 
+    if (json == null) {
+      return liste;
+    }
+
     for (var attacke in json) {
-      liste.addAttacke(
-        Attacke.fromJson(attacke as Map<String, dynamic>),
-      );
+      if (attacke != null) {
+        liste.addAttacke(
+          Attacke.fromJson(Map<String, dynamic>.from(attacke)),
+        );
+      }
     }
 
     return liste;
