@@ -1195,8 +1195,9 @@ class _StatusScreenState extends State<StatusScreen> {
             child: Image.asset(
               'assets/hintergrund_pergament.jpg',
               fit: BoxFit.cover,
-              errorBuilder: (c, e, s) =>
-                  Container(color: Colors.black),
+              errorBuilder: (c, e, s) => Container(
+                color: Colors.black,
+              ),
             ),
           ),
 
@@ -1209,6 +1210,9 @@ class _StatusScreenState extends State<StatusScreen> {
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.85,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: const Color(0xFFF4EAD4),
@@ -1224,89 +1228,93 @@ class _StatusScreenState extends State<StatusScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "HELDEN-STATUS",
-                    style: TextStyle(
-                      color: Color(0xFF2D1E10),
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-
-                  const Divider(
-                    color: Color(0xFF8A6421),
-                    thickness: 2,
-                    indent: 20,
-                    endIndent: 20,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  _buildStatusRow(
-                    Icons.person,
-                    "Name",
-                    widget.settings.charName,
-                  ),
-
-                  _buildStatusRow(
-                    Icons.favorite,
-                    "Lebenspunkte",
-                    "${widget.settings.spieler.leben} / ${widget.settings.spieler.maxleben}",
-                  ),
-
-                  _buildStatusRow(
-                    Icons.battery_full,
-                    "Ausdauer",
-                    "${widget.settings.spieler.ausdauer} / ${widget.settings.spieler.maxausdauer}",
-                  ),
-
-                  _buildStatusRow(
-                    Icons.refresh,
-                    "Ausdauerregeneration",
-                    "${widget.settings.spieler.ausdauerregeneration}",
-                  ),
-
-                  _buildStatusRow(
-                    Icons.shield,
-                    "Verteidigung",
-                    "${widget.settings.spieler.verteidigung}",
-                  ),
-
-                  _buildStatusRow(
-                    Icons.bolt,
-                    "Geschwindigkeit",
-                    "${widget.settings.spieler.geschwindigkeit}",
-                  ),
-
-                  _buildStatusRow(
-                    Icons.sports_mma,
-                    "Stärke",
-                    "${widget.settings.spieler.staerke}",
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  _buildAttackenListe(),
-
-                  const SizedBox(height: 30),
-
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8A6421),
-                      foregroundColor: const Color(0xFFF4EAD4),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 15,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "HELDEN-STATUS",
+                      style: TextStyle(
+                        color: Color(0xFF2D1E10),
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
                       ),
                     ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Zurück zum Abenteuer"),
-                  ),
-                ],
+
+                    const Divider(
+                      color: Color(0xFF8A6421),
+                      thickness: 2,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    _buildStatusRow(
+                      Icons.person,
+                      "Name",
+                      widget.settings.charName,
+                    ),
+
+                    _buildStatusRow(
+                      Icons.favorite,
+                      "Lebenspunkte",
+                      "${widget.settings.spieler.leben} / ${widget.settings.spieler.maxleben}",
+                    ),
+
+                    _buildStatusRow(
+                      Icons.battery_full,
+                      "Ausdauer",
+                      "${widget.settings.spieler.ausdauer} / ${widget.settings.spieler.maxausdauer}",
+                    ),
+
+                    _buildStatusRow(
+                      Icons.refresh,
+                      "Ausdauerregeneration",
+                      "${widget.settings.spieler.ausdauerregeneration}",
+                    ),
+
+                    _buildStatusRow(
+                      Icons.shield,
+                      "Verteidigung",
+                      "${widget.settings.spieler.verteidigung}",
+                    ),
+
+                    _buildStatusRow(
+                      Icons.bolt,
+                      "Geschwindigkeit",
+                      "${widget.settings.spieler.geschwindigkeit}",
+                    ),
+
+                    _buildStatusRow(
+                      Icons.sports_mma,
+                      "Stärke",
+                      "${widget.settings.spieler.staerke}",
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    _buildAttackenListe(),
+
+                    const SizedBox(height: 30),
+
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8A6421),
+                        foregroundColor: const Color(0xFFF4EAD4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 15,
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        "Zurück zum Abenteuer",
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
