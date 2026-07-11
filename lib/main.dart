@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Für das Kopieren in die Zwischenablage
 import 'package:flutter_application_1/Kampfsystem/battle_screen.dart';
+import 'package:flutter_application_1/Kampfsystem/chat_bot.dart';
+import 'package:flutter_application_1/Kampfsystem/item.dart';
+import 'package:flutter_application_1/Kampfsystem/item_liste.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/map_screen.dart';
 import 'Kampfsystem/spieler.dart';
 import 'Kampfsystem/start_initialirung.dart';
-
 
 void main() {
   runApp(const ChatBotApp());
@@ -25,7 +27,6 @@ class ChatBotApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF1E140A),
         primaryColor: const Color(0xFFC5A059),
       ),
-
       home: const StartScreen(),
     );
   }
@@ -81,6 +82,7 @@ class GameSettings {
   }
 }
 
+/*
 class InventoryItem { //TODO inventar muss auf Spieler angepasst werden
   final String name;
   final String description;
@@ -96,7 +98,7 @@ class InventoryItem { //TODO inventar muss auf Spieler angepasst werden
     required this.iconColor,
   });
 }
-
+*/
 // --- STARTBILDSCHIRM ---
 
 class StartScreen extends StatelessWidget {
@@ -111,7 +113,7 @@ class StartScreen extends StatelessWidget {
             child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black)),
           ),
           Positioned.fill(
-            child: Container(color: Colors.black.withValues(alpha: 0.4),),
+            child: Container(color: Colors.black.withValues(alpha: 0.4)),
           ),
           Center(
             child: Column(
@@ -195,7 +197,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
 
   Future<void> _loadSaveGameList() async {
     final prefs = await SharedPreferences.getInstance();
-    //await prefs.clear(); //TODO Alte Speicherdaten Stimmen nicht mit der Neuen version überein. Bei auftretenden fehlern einmal Zeile entkommentieren --> App starten und Spiele Laden --> App schließen --> zeile zum Kommentar machen
+    // await prefs.clear(); //TODO Alte Speicherdaten Stimmen nicht mit der Neuen version überein. Bei auftretenden fehlern einmal Zeile entkommentieren --> App starten und Spiele Laden --> App schließen --> zeile zum Kommentar machen
     final keys = prefs.getKeys().where((key) => key.startsWith('savegame_'));
     
     List<Map<String, dynamic>> loadedSaves = [];
@@ -459,14 +461,15 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                       ),
                       onPressed: () {
+                        final name = _nameController.text.isEmpty ? "Namenloser" : _nameController.text;
                         final settings = GameSettings(
                           id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          charName: _nameController.text.isEmpty ? "Namenloser" : _nameController.text,
+                          charName: name,
                           gender: _selectedGender,
                           difficulty: _selectedDifficulty,
                           setting: _selectedSetting,
                           usePredefinedAdventure: _isPredefined,
-                          spieler: StartInitialisierung.erstelleSpieler(_nameController.text.isEmpty ? "Namenloser" : _nameController.text),
+                          spieler: StartInitialisierung.erstelleSpieler(name),
                         );
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
                       },
@@ -520,44 +523,60 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late Chatbot cb;
   
   // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
   final String _apiKey = ""; //TODO API key eingeben
   
   late List<ChatMessage> _messages;
-  late List<InventoryItem> _inventory;
+ // late List<InventoryItem> _inventory;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.initialSaveData != null) {
-      _loadFromInitialData();
+     // _loadFromInitialData();
     } else {
-      _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
-      _initInventory();
+      _messages = [ChatMessage(text: _generateIntroText(), isUser: false)];
+      //_initInventory();
       _saveGame(); 
     }
     //TODO muss überarbeitet werden sodass nur die antwort angezeigt wird (Neu funktion erstellen die aufgerufen wird)
     if(widget.kampfAusgang != null) {
       if(widget.kampfAusgang == 0) {
-        _sendMessage("Der Spieler hat den Kampf gewonnen. Schreib eine Siegesnarchicht.");
+        _sendMessage("Der Spieler hat den Kampf gewonnen. Schreib eine Siegesnachricht.");
       } else if(widget.kampfAusgang == 1) {
-        _sendMessage("Der Spieler ist aus dem Kampf entkommen. Schreib eine Narchicht wie er entkommen ist.");
+        _sendMessage("Der Spieler ist aus dem Kampf entkommen. Schreib eine Nachricht wie er entkommen ist.");
       } else if(widget.kampfAusgang == 2) {
-        _sendMessage("Der Spieler hat den Kampf verloren. Schreib eine Narchicht wie er Überlebt."); //TODO bei niederlage Spiel vorbei
+        _sendMessage("Der Spieler hat den Kampf verloren. Schreib eine Nachricht wie er überlebt."); //TODO bei niederlage Spiel vorbei
       }
     }
   }
 
-  void _loadFromInitialData() {
+  // Dynamischer Intro-Text basierend auf dem Welt-Setting
+  String _generateIntroText() {
+    String name = widget.settings.charName;
+    String anrede = widget.settings.gender == 'Männlich' ? 'Abenteurer' : (widget.settings.gender == 'Weiblich' ? 'Abenteurerin' : 'Wanderer');
+
+    if (widget.settings.setting == 'Sci-Fi') {
+      return "Systeme online... Seid gegrüßt, $anrede $name. Ihr erwacht aus dem Kryoschlaf auf der Orbitalstation 'Aegis-IV'. Die Notbeleuchtung flackert rot und dichte Rauchschwaden ziehen durch die Gänge. Euer primäres Ziel ist es, die Brücke zu erreichen, das unbekannte Alien-Notsignal zu entschlüsseln und die Kernreaktoren zu stabilisieren, bevor die Station in die Atmosphäre stürzt. Was tut ihr?";
+    } else if (widget.settings.setting == 'Piraten') {
+      return "Ahoi, $anrede $name! Die Gischt peitscht euch ins Gesicht, als ihr in einer schummrigen Spelunke im Hafen von Tortuga sitzt. Vor euch liegt eine vergilbte Pergamentkarte, die den Weg zur sagenumwobenen 'Insel der verlorenen Seelen' weist. Euer Ziel ist es, eine Crew anzuheuern, die Blockade der königlichen Marine zu durchbrechen und das verfluchte Azteken-Gold zu bergen. Was tut ihr?";
+    } else {
+      // Standard: Mittelalter
+      return "Seid gegrüßt, $anrede $name. Ein dichter Nebel liegt über dem Düsterwald, als ihr vor den massiven, moosbewachsenen Toren der vergessenen Festung 'Eisengrab' steht. Legenden besagen, dass tief in den Katakomben das entwendete Sonnen-Relikt eures Ordens ruht. Euer Ziel ist es, unbemerkt einzudringen, die Wachen zu umgehen oder zu bezwingen und das Relikt zu sichern. Was tut ihr?";
+    }
+  }
+
+  /* void _loadFromInitialData() {
     final save = widget.initialSaveData!;
     
     final List<dynamic> savedChat = save['chat'];
     _messages = savedChat.map((msg) => ChatMessage(text: msg['text'], isUser: msg['isUser'])).toList();
 
     final List<dynamic> savedInv = save['inventory'] ?? [];
-    _inventory = savedInv.map((item) {
+   _inventory = savedInv.map((item) {
       IconData icon = Icons.backpack; 
       if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel") || item['name'].toString().contains("Dolch")) icon = Icons.gavel;
       if (item['name'].toString().contains("Trank") || item['name'].toString().contains("Kit") || item['name'].toString().contains("Rum")) icon = Icons.science;
@@ -569,13 +588,16 @@ class _ChatScreenState extends State<ChatScreen> {
         quantity: item['quantity'],
         icon: icon,
         iconColor: Colors.amber,
+
       );
     }).toList();
 
     _scrollToBottom();
   }
+*/
 
-  void _initInventory() {
+
+ /*  void _initInventory() {
     if (widget.settings.setting == 'Sci-Fi') {
       _inventory = [
         InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
@@ -596,16 +618,17 @@ class _ChatScreenState extends State<ChatScreen> {
       ];
     }
   }
+*/
 
   Future<void> _saveGame() async {
     final prefs = await SharedPreferences.getInstance();
     List<Map<String, dynamic>> chatJson = _messages.map((msg) => {'text': msg.text, 'isUser': msg.isUser}).toList();
-    List<Map<String, dynamic>> inventoryJson = _inventory.map((item) => {'name': item.name, 'description': item.description, 'quantity': item.quantity}).toList();
+    //List<Map<String, dynamic>> inventoryJson = _inventory.map((item) => {'name': item.name, 'description': item.description, 'quantity': item.quantity}).toList();
 
     Map<String, dynamic> gameState = {
       'settings': widget.settings.toJson(),
       'chat': chatJson,
-      'inventory': inventoryJson,
+     // 'inventory': inventoryJson,
     };
 
     await prefs.setString('savegame_${widget.settings.id}', jsonEncode(gameState));
@@ -621,23 +644,18 @@ class _ChatScreenState extends State<ChatScreen> {
         targetName = "nanomed-kit";
       } else if (widget.settings.setting == 'Piraten') {
         targetName = "rum";
-      }
-      else {
+      } else {
         targetName = "heiltrank";
       }
 
       try {
-        final item = _inventory.firstWhere((element) => element.name.toLowerCase().contains(targetName));
-        if (item.quantity > 0) {
+        final item = widget.settings.spieler.items.getItemWithName(targetName);
+        if (item != null) {
           setState(() {
-            item.quantity--;
+            
             widget.settings.spieler.leben = (widget.settings.spieler.leben + 30).clamp(0, widget.settings.spieler.maxleben);
             _messages.add(ChatMessage(text: "Du benutzt ${item.name}. Deine Wunden schließen sich (+30 HP).", isUser: false));
-            
-            // WICHTIG: Wenn die Menge auf 0 fällt, löschen wir das Item komplett!
-            if (item.quantity <= 0) {
-              _inventory.remove(item);
-            }
+            widget.settings.spieler.items.entferenItem(item);
           });
           _saveGame();
           _scrollToBottom();
@@ -657,7 +675,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<String> _fetchRealAIResponse(String userMessage) async {
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${_apiKey.trim()}');
     
-    final invList = _inventory.map((e) => "${e.name} (x${e.quantity})").join(", ");
+    final invList = widget.settings.spieler.items.toJson();
     final chatHistory = _messages.length > 10 
         ? _messages.sublist(_messages.length - 10).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
         : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
@@ -742,16 +760,13 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
       try {
         final data = jsonDecode(match.group(1)!);
         String name = data['name'];
-        int qty = data['qty'] ?? 1;
+        int descqty = data['desc'];
         
         setState(() {
-          int idx = _inventory.indexWhere((i) => i.name.toLowerCase() == name.toLowerCase());
-          if (idx != -1) {
-            _inventory[idx].quantity -= qty;
+          int idx = widget.settings.spieler.items.getIndex(name);
+          if (idx != 999) {
             cleanAnswer += "\n\n❌ [Gegenstand verloren: $name]";
-            if (_inventory[idx].quantity <= 0) {
-              _inventory.removeAt(idx);
-            }
+            widget.settings.spieler.items.entferenItem(widget.settings.spieler.items.getItem(idx));
           }
         });
       } catch (_) {}
@@ -766,14 +781,10 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
         final data = jsonDecode(match.group(1)!);
         String name = data['name'];
         String desc = data['desc'] ?? "";
-        
+        Item neu = await cb.erstelleItem(name, desc, widget.settings);
+        widget.settings.spieler.items.addItem(neu);
         setState(() {
-          int existingIndex = _inventory.indexWhere((e) => e.name.toLowerCase() == name.toLowerCase());
-          if (existingIndex != -1) {
-            _inventory[existingIndex].quantity++;
-          } else {
-            _inventory.add(InventoryItem(name: name, description: desc, quantity: 1, icon: Icons.star, iconColor: Colors.amber));
-          }
+          
           cleanAnswer += "\n\n✨ [Gegenstand aufgehoben: $name]";
         });
       } catch (_) {}
@@ -790,7 +801,6 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     }
     cleanAnswer = cleanAnswer.replaceAll(combatRegex, '').trim();
 
-    // Text aktualisieren & Lade-Zustand beenden
     setState(() {
       _messages[loadingIndex] = ChatMessage(text: cleanAnswer, isUser: false);
       _isLoading = false;
@@ -799,7 +809,6 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     _scrollToBottom();
     await _saveGame(); 
 
-    // Gegebenenfalls Kampf starten
     if (combatData != null) {
       if (!mounted) return;
       Navigator.push(
@@ -827,7 +836,6 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
           SafeArea(
             child: Column(
               children: [
-                // --- OBERE LEISTE MIT DYNAMISCHER HP-ANZEIGE ---
                 Padding(
                   padding: const EdgeInsets.only(left: 12.0, right: 16.0, top: 12.0, bottom: 4.0),
                   child: Row(
@@ -850,7 +858,6 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
                             children: [
                               const Icon(Icons.favorite, color: Colors.redAccent, size: 22),
                               const SizedBox(width: 6),
-                              // Diese Zahl aktualisiert sich jetzt durch setState sofort!
                               Text("${widget.settings.spieler.leben}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 12),
                               const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26),
@@ -935,7 +942,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
           if (isStatus) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => StatusScreen(settings: widget.settings)));
           } else if (isInventory) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen(inventory: _inventory)));
+            Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen(inventory: widget.settings.spieler.items)));
           } else if (title == "Karte") {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
           } else {
@@ -965,213 +972,6 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
 }
 
 // --- STATUS SCREEN ---
-//Alte Stateless version(bereits auf attribute und attacken angepasst)
-/*
-class StatusScreen extends StatelessWidget {
-  final GameSettings settings;
-  const StatusScreen({super.key, required this.settings});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.85,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4EAD4),
-                border: Border.all(color: const Color(0xFF8A6421), width: 4),
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 15)],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("HELDEN-STATUS", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 20, endIndent: 20),
-                  const SizedBox(height: 20),
-                  _buildStatusRow(Icons.person, "Name", settings.charName),
-                  _buildStatusRow(Icons.favorite, "Lebenspunkte", "${settings.spieler.leben} / ${settings.spieler.maxleben}"),
-                  _buildStatusRow(Icons.battery_full, "Ausdauer", "${settings.spieler.ausdauer} / ${settings.spieler.maxausdauer}"),
-                  _buildStatusRow(Icons.refresh, "Ausdauerregeneration", "${settings.spieler.ausdauerregeneration}"),
-                  _buildStatusRow(Icons.shield, "Verteidigung", "${settings.spieler.verteidigung}"),
-                  _buildStatusRow(Icons.bolt, "Geschwindigkeit", "${settings.spieler.geschwindigkeit}"),
-                  _buildStatusRow(Icons.sports_mma, "Stärke", "${settings.spieler.staerke}"),
-
-                  const SizedBox(height: 30),
-
-                  _buildAttackenListe(),
-
-                  const SizedBox(height: 30),
-
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421), foregroundColor: const Color(0xFFF4EAD4), padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Zurück zum Abenteuer"),
-                  )
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF8A6421), size: 28),
-          const SizedBox(width: 15),
-          Text("$label: ", style: const TextStyle(color: Color(0xFF5C4018), fontSize: 18, fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 20, fontWeight: FontWeight.w400, fontStyle: FontStyle.italic))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttackenListe() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Icon(
-              Icons.auto_awesome,
-              color: Color(0xFF8A6421),
-            ),
-            SizedBox(width: 8),
-            Text(
-              "Attacken",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D1E10),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        Container(
-          height: 220,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            border: Border.all(
-              color: const Color(0xFF8A6421),
-              width: 2,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: settings.spieler.attacken.alleAttacken.isEmpty
-              ? const Center(
-                  child: Text(
-                    "Keine Attacken vorhanden",
-                    style: TextStyle(
-                      color: Color(0xFF2D1E10),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount:
-                      settings.spieler.attacken.alleAttacken.length,
-                  itemBuilder: (context, index) {
-                    final attacke =
-                        settings.spieler.attacken.alleAttacken[index];
-
-                    return Card(
-                      color: const Color(0xFFF4EAD4),
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      child: ListTile(
-                        leading: Icon(
-                          attacke.aoe
-                                ? Icons.blur_on
-                                : attacke.aufgegner
-                                    ? Icons.gps_fixed
-                                    : Icons.healing,
-                          color: const Color(0xFF8A6421),
-                        ),
-                        title: Text(
-                          attacke.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black
-                          ),
-                        ),
-                        subtitle: Text(
-                          "${attacke.beschreibung}\n"
-                          "Kraft: ${attacke.kraft}\n"
-                          "Ausdauer Kosten: ${attacke.kosten}",
-                          style: const TextStyle(
-                            color: Colors.black
-                          ),
-                        ),
-                        isThreeLine: true,
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.delete,
-                            color: Colors.red,
-                          ),
-                          onPressed: () =>
-                              _attackeLoeschenDialog(index),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  
-  Future<void> _attackeLoeschenDialog(int index) async {
-    final attacke =
-        settings.spieler.attacken.alleAttacken[index];
-
-    final bool? loeschen = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Attacke entfernen"),
-          content: Text(
-            'Möchtest du die Attacke "${attacke.name}" wirklich entfernen?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("Nein"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Ja"),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (loeschen == true) {
-      setState(() {
-        settings.spieler.attacken.AttackeLoeschen(index);
-      });
-    }
-  }
-}
-*/
 
 class StatusScreen extends StatefulWidget {
   final GameSettings settings;
@@ -1195,18 +995,12 @@ class _StatusScreenState extends State<StatusScreen> {
             child: Image.asset(
               'assets/hintergrund_pergament.jpg',
               fit: BoxFit.cover,
-              errorBuilder: (c, e, s) => Container(
-                color: Colors.black,
-              ),
+              errorBuilder: (c, e, s) => Container(color: Colors.black),
             ),
           ),
-
           Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.5),
-            ),
+            child: Container(color: Colors.black.withValues(alpha: 0.5)),
           ),
-
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.85,
@@ -1241,64 +1035,51 @@ class _StatusScreenState extends State<StatusScreen> {
                         letterSpacing: 2,
                       ),
                     ),
-
                     const Divider(
                       color: Color(0xFF8A6421),
                       thickness: 2,
                       indent: 20,
                       endIndent: 20,
                     ),
-
                     const SizedBox(height: 20),
-
                     _buildStatusRow(
                       Icons.person,
                       "Name",
                       widget.settings.charName,
                     ),
-
                     _buildStatusRow(
                       Icons.favorite,
                       "Lebenspunkte",
                       "${widget.settings.spieler.leben} / ${widget.settings.spieler.maxleben}",
                     ),
-
                     _buildStatusRow(
                       Icons.battery_full,
                       "Ausdauer",
                       "${widget.settings.spieler.ausdauer} / ${widget.settings.spieler.maxausdauer}",
                     ),
-
                     _buildStatusRow(
                       Icons.refresh,
                       "Ausdauerregeneration",
                       "${widget.settings.spieler.ausdauerregeneration}",
                     ),
-
                     _buildStatusRow(
                       Icons.shield,
                       "Verteidigung",
                       "${widget.settings.spieler.verteidigung}",
                     ),
-
                     _buildStatusRow(
                       Icons.bolt,
                       "Geschwindigkeit",
                       "${widget.settings.spieler.geschwindigkeit}",
                     ),
-
                     _buildStatusRow(
                       Icons.sports_mma,
                       "Stärke",
                       "${widget.settings.spieler.staerke}",
                     ),
-
                     const SizedBox(height: 30),
-
                     _buildAttackenListe(),
-
                     const SizedBox(height: 30),
-
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8A6421),
@@ -1309,9 +1090,7 @@ class _StatusScreenState extends State<StatusScreen> {
                         ),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        "Zurück zum Abenteuer",
-                      ),
+                      child: const Text("Zurück zum Abenteuer"),
                     ),
                   ],
                 ),
@@ -1323,23 +1102,13 @@ class _StatusScreenState extends State<StatusScreen> {
     );
   }
 
-  Widget _buildStatusRow(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _buildStatusRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: const Color(0xFF8A6421),
-            size: 28,
-          ),
-
+          Icon(icon, color: const Color(0xFF8A6421), size: 28),
           const SizedBox(width: 15),
-
           Text(
             "$label: ",
             style: const TextStyle(
@@ -1348,7 +1117,6 @@ class _StatusScreenState extends State<StatusScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           Expanded(
             child: Text(
               value,
@@ -1371,10 +1139,7 @@ class _StatusScreenState extends State<StatusScreen> {
       children: [
         const Row(
           children: [
-            Icon(
-              Icons.auto_awesome,
-              color: Color(0xFF8A6421),
-            ),
+            Icon(Icons.auto_awesome, color: Color(0xFF8A6421)),
             SizedBox(width: 8),
             Text(
               "Attacken",
@@ -1386,9 +1151,7 @@ class _StatusScreenState extends State<StatusScreen> {
             ),
           ],
         ),
-
         const SizedBox(height: 10),
-
         Container(
           height: 220,
           decoration: BoxDecoration(
@@ -1399,86 +1162,65 @@ class _StatusScreenState extends State<StatusScreen> {
             ),
             borderRadius: BorderRadius.circular(10),
           ),
-          child:
-              widget.settings.spieler.attacken.alleAttacken.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "Keine Attacken vorhanden",
-                        style: TextStyle(
-                          color: Color(0xFF2D1E10),
-                          fontStyle: FontStyle.italic,
+          child: widget.settings.spieler.attacken.alleAttacken.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Keine Attacken vorhanden",
+                    style: TextStyle(
+                      color: Color(0xFF2D1E10),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: widget.settings.spieler.attacken.alleAttacken.length,
+                  itemBuilder: (context, index) {
+                    final attacke = widget.settings.spieler.attacken.alleAttacken[index];
+
+                    return Card(
+                      color: const Color(0xFFF4EAD4),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          attacke.aoe
+                              ? Icons.blur_on
+                              : attacke.aufgegner
+                                  ? Icons.gps_fixed
+                                  : Icons.healing,
+                          color: const Color(0xFF8A6421),
+                        ),
+                        title: Text(
+                          attacke.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        subtitle: Text(
+                          "${attacke.beschreibung}\n"
+                          "Kraft: ${attacke.kraft}\n"
+                          "Ausdauer Kosten: ${attacke.kosten}",
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _attackeLoeschenDialog(index),
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: widget
-                          .settings
-                          .spieler
-                          .attacken
-                          .alleAttacken
-                          .length,
-                      itemBuilder: (context, index) {
-                        final attacke = widget
-                            .settings
-                            .spieler
-                            .attacken
-                            .alleAttacken[index];
-
-                        return Card(
-                          color: const Color(0xFFF4EAD4),
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: ListTile(
-                            leading: Icon(
-                              attacke.aoe
-                                  ? Icons.blur_on
-                                  : attacke.aufgegner
-                                      ? Icons.gps_fixed
-                                      : Icons.healing,
-                              color: const Color(0xFF8A6421),
-                            ),
-
-                            title: Text(
-                              attacke.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-
-                            subtitle: Text(
-                              "${attacke.beschreibung}\n"
-                              "Kraft: ${attacke.kraft}\n"
-                              "Ausdauer Kosten: ${attacke.kosten}",
-                              style: const TextStyle(
-                                color: Colors.black,
-                              ),
-                            ),
-
-                            isThreeLine: true,
-
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
-                              ),
-                              onPressed: () =>
-                                  _attackeLoeschenDialog(index),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
   Future<void> _attackeLoeschenDialog(int index) async {
-    final attacke =
-        widget.settings.spieler.attacken.alleAttacken[index];
+    final attacke = widget.settings.spieler.attacken.alleAttacken[index];
 
     final bool? loeschen = await showDialog<bool>(
       context: context,
@@ -1490,16 +1232,12 @@ class _StatusScreenState extends State<StatusScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text("Nein"),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              onPressed: () =>
-                  Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text("Ja"),
             ),
           ],
@@ -1518,7 +1256,7 @@ class _StatusScreenState extends State<StatusScreen> {
 // --- INVENTAR SCREEN ---
 //TODO Inventar muss auf Spieler angepasst werden
 class InventoryScreen extends StatelessWidget {
-  final List<InventoryItem> inventory;
+  final ItemListe inventory;
   const InventoryScreen({super.key, required this.inventory});
 
   @override
@@ -1541,51 +1279,69 @@ class InventoryScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const Text("BEUTEL & INVENTAR", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 10, endIndent: 10),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: inventory.length,
-                      itemBuilder: (context, index) {
-                        final item = inventory[index];
-                        return Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFE3C3),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFBA9355).withValues(alpha: 0.5), width: 1.5),
-                          ),
-                          child: ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(color: const Color(0xFF2D1E10), borderRadius: BorderRadius.circular(6)),
-                              child: Icon(item.icon, color: item.iconColor, size: 28),
-                            ),
-                            title: Text(item.name, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold)),
-                            subtitle: Text(item.description, style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic)),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(color: const Color(0xFF8A6421), borderRadius: BorderRadius.circular(12)),
-                              child: Text("x${item.quantity}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 16, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8A6421),
-                      foregroundColor: const Color(0xFFF4EAD4),
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Sack schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+  const Text("BEUTEL & INVENTAR", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 10, endIndent: 10),
+  const SizedBox(height: 10),
+  Expanded(
+    child: ListView.builder(
+      itemCount: inventory.getAnzahl(),
+      itemBuilder: (context, index) {
+        final item = inventory.getItem(index);
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFE3C3),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFBA9355).withValues(alpha: 0.5), width: 1.5),
+          ),
+          child: ListTile(
+            // Ein festes, atmosphärisches Icon passend für ein RPG-Item
+            leading: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D1E10), 
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.auto_awesome, color: Color(0xFFBA9355), size: 28),
+            ),
+            title: Text(
+              item.name, 
+              style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            // "item.beschreibung" statt "item.description" passend zu deiner Modell-Klasse
+            subtitle: Text(
+              item.beschreibung, 
+              style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic),
+            ),
+            // Optional: Zeigt die Kraft des Items auf der rechten Seite an
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8A6421), 
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                "Kraft: ${item.kraft}", 
+                style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  ),
+  const SizedBox(height: 15),
+  ElevatedButton(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF8A6421),
+      foregroundColor: const Color(0xFFF4EAD4),
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+    onPressed: () => Navigator.pop(context),
+    child: const Text("Sack schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+  ),
+],
               ),
             ),
           ),

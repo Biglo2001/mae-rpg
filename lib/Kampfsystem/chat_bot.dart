@@ -4,6 +4,7 @@ import 'package:flutter_application_1/main.dart';
 import 'package:http/http.dart' as http;
 import 'gegner_liste.dart';
 import 'attacken_liste.dart';
+import 'item.dart';
 
 class Chatbot {
   final String _apiKey = ""; //TODO API key eingeben
@@ -11,7 +12,8 @@ class Chatbot {
   final String apiUrl ="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"; //TODO mehrere URL mit unterschiedlichen Modellen erstellen um Token zu sparen
 
     // ✅ Nachricht senden und Antwort bekommen
- 
+
+
   Future<String> sendeNachricht(
     String prompt,
     Map<String, dynamic> json,
@@ -260,6 +262,103 @@ class Chatbot {
       return null;
     }
   }
+
+
+Future<Item> erstelleItem(String name, String desc, GameSettings settings) async {
+  // itemTyp kann z.B. "Heilung", "Flächenschaden" oder "Einzelziel" sein, um der KI mitzuteilen, was gewünscht ist.
+  
+  String prompt = '''
+  Erstelle genau 1 Item basierend auf dem Namen und der Beschreibung.
+  Name des Gegenstands: $name
+  Beschreibung/Kontext: $desc
+
+  WICHTIG:
+  - Antworte ausschließlich mit gültigem JSON.
+  - Keine Erklärungen.
+  - Kein Markdown.
+  - Keine Codeblöcke.
+
+  Format:
+  {
+    "name": "Name des Items",
+    "beschreibung": "Eine atmosphärische Beschreibung im ${settings.setting}-Stil.",
+    "kraft": 1.5,
+    "aufgegner": true,
+    "aoe": false
+  }
+  
+  Falls es ein Heilgegenstand/Heilfähigkeit ist:
+    - aufgegner = false
+    - kraft beschreibt die Heilmenge und soll zwischen 0.7 und 3 liegen
+    - aoe = false
+    
+  Falls es eine Flächenfähigkeit/Flächenschaden-Gegenstand ist:
+    - aoe = true
+    - aufgegner = true
+    - kraft soll zwischen 0.5 und 2 liegen
+    
+  Falls es eine Einzelzielfähigkeit/Waffe ist:
+    - aoe = false
+    - aufgegner = true
+    - kraft soll zwischen 1.0 und 5.0 liegen
+    
+  Allgemein:
+  - Die Kraft soll tendenziell niedrig gehalten werden und nur mit einer geringen Wahrscheinlichkeit höher ausfallen.
+  - Datentyp-Hinweis für "kraft": Muss eine Fließkommazahl (double) sein.
+  ''';
+
+  try {
+    final response = await http.post(
+      Uri.parse("$apiUrl?key=${_apiKey.trim()}"),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "contents": [
+          {
+            "parts": [
+              {"text": prompt}
+            ]
+          }
+        ],
+        "generationConfig": {
+          "responseMimeType": "application/json"
+        }
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      debugPrint("Fehler: ${response.statusCode}");
+      debugPrint(response.body);
+      return Item(
+      name: "Platzhalter",
+      beschreibung: "",
+      kraft: 0,
+      aufgegner: false,
+      aoe: false,
+    );
+    }
+
+    final responseData = jsonDecode(response.body);
+
+    final jsonText = responseData["candidates"][0]["content"]["parts"][0]["text"];
+
+    final Map<String, dynamic> jsonData = jsonDecode(jsonText);
+
+    // Hier mappen wir das JSON direkt in dein Datenmodell "Item"
+    return Item.fromJson(jsonData);
+
+  } catch (e) {
+    debugPrint("Fehler beim Erstellen des Items: $e");
+    return Item(
+      name: "Platzhalter",
+      beschreibung: "",
+      kraft: 0,
+      aufgegner: false,
+      aoe: false,
+    );
+  }
+}
 
 
 }

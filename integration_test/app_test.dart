@@ -18,7 +18,7 @@ void main() {
       await tester.pumpAndSettle(); // Warten, bis der StartScreen geladen ist
 
       // Überprüfen, ob wir auf dem StartScreen sind
-      //expect(find.textContaining('Chroniken der Schattenwelt'), findsOneWidget);
+    
 
       // 2. Auf "Spiel Erstellen" tippen
       final spielErstellenBtn = find.text('Spiel Erstellen');
@@ -59,7 +59,7 @@ final chatInput = find.descendant(
 await tester.enterText(chatInput, 'Nutze Heiltrank');
 await tester.pumpAndSettle();
 
-// === HIER DIE ZEILE ABÄNDERN ===
+
 // Ersetze Icons.send durch Icons.draw, da das dein echtes Absende-Icon ist!
 // Absendebutton (Icon) suchen und drücken
       final sendButton = find.byIcon(Icons.draw);
