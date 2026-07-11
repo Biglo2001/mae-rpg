@@ -14,6 +14,10 @@ class ItemListe {
     return _items[index];
   }
 
+  Item getItemWithName(String name){
+    return _items.firstWhere((element) => element.name.toLowerCase().contains(name));
+  }
+
   // ✅ Neues Item hinzufügen
   void addItem(Item item) {
     _items.add(item);
@@ -26,6 +30,26 @@ class ItemListe {
   // ✅ toJson
   List<Map<String, dynamic>> toJson() {
     return _items.map((item) => item.toJson()).toList();
+  }
+
+  int getIndex(String name){
+    int x = 0;
+      for(Item i in _items){
+        if(i.name == name){
+          return x;
+        }
+        else x++;
+      }
+      return 999;
+  }
+
+   int getAnzahl(){
+    int x = 0;
+      for(Item i in _items){
+       
+        x++;
+      }
+      return x;
   }
 
   // ✅ fromJson
