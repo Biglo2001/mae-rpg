@@ -68,7 +68,6 @@ class GameLogic extends ChangeNotifier {
       }
       turnSystem();
     } else {
-      //TODO wenn es nicht funktioniert entkommt man nur/ villeicht was besseres implementieren
       onZurueckZumChatEntkommen?.call();
     }
 
@@ -389,7 +388,7 @@ class GameLogic extends ChangeNotifier {
     return schaden;
   }
 
-  void combatEnde(int gewonnen) { //TODO [nur ein Hinweis] -- 0=Gewonnen / 1=entkommen / 2=verloren
+  void combatEnde(int gewonnen) {
     imKampf = false;
     beendeSpielerZug();
 
@@ -398,7 +397,7 @@ class GameLogic extends ChangeNotifier {
       onLevelUp?.call(spieler);
     } else if(gewonnen==2) {
       // Verloren
-      onZurueckZumChatVerloren?.call(); //TODO muss eingepasst werden sodass spiel vorbie ist wenn man verliert
+      onZurueckZumChatVerloren?.call();
     } else if(gewonnen == 1) {
       // Entkommen
       onZurueckZumChatEntkommen?.call();

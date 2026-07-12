@@ -15,7 +15,7 @@ void main() {
         difficulty: 'Schwer',
         setting: 'Mittelalter',
         usePredefinedAdventure: true,
-        spieler: StartInitialisierung.erstelleSpieler("Thorin"),
+        spieler: StartInitialisierung.erstelleSpieler("Thorin", "Mittelalter"),
       );
       // 2. Act: Methode ausführen
       final json = settings.toJson();
@@ -38,7 +38,7 @@ void main() {
         'difficulty': 'Leicht',
         'setting': 'Sci-Fi',
         'adventure_type': 'Prozedural',
-        'spieler': StartInitialisierung.erstelleSpieler("Elyra").toJson(),
+        'spieler': StartInitialisierung.erstelleSpieler("Elyra", 'Sci-Fi').toJson(),
       };
 
       // 2. Act: Instanz über Factory-Methode erstellen

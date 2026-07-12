@@ -13,7 +13,7 @@ void main() {
       gender: 'Männlich',
       difficulty: 'Mittel',
       setting: 'Mittelalter',
-      spieler: StartInitialisierung.erstelleSpieler("Gandalf"),
+      spieler: StartInitialisierung.erstelleSpieler("Gandalf", "Mittelalter"),
     );
 
     // 2. Act: Das Widget in der Testumgebung rendern
