@@ -82,25 +82,7 @@ class GameSettings {
   }
 }
 
-/*
-class InventoryItem { //TODO inventar muss auf Spieler angepasst werden
-  final String name;
-  final String description;
-  int quantity; 
-  final IconData icon;
-  final Color iconColor;
-
-  InventoryItem({
-    required this.name,
-    required this.description,
-    required this.quantity,
-    required this.icon,
-    required this.iconColor,
-  });
-}
-*/
 // --- STARTBILDSCHIRM ---
-
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});
 
@@ -393,8 +375,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
   }
 }
 
-// --- SETUP SCREEN (CHARAKTERERSTELLUNG) ---
-
+// --- SETUP SCREEN (CHARAKTERERSTELLUNG) --- //TODO API key muss beim setup eingegeben werden --> variabel in gamesettings machen setting an chatbot klasse übergeben
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
@@ -469,7 +450,7 @@ class _SetupScreenState extends State<SetupScreen> {
                           difficulty: _selectedDifficulty,
                           setting: _selectedSetting,
                           usePredefinedAdventure: _isPredefined,
-                          spieler: StartInitialisierung.erstelleSpieler(name),
+                          spieler: StartInitialisierung.erstelleSpieler(name, _selectedSetting),
                         );
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
                       },
@@ -523,7 +504,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late Chatbot cb;
+  final cb = Chatbot();
   
   // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
   final String _apiKey = ""; //TODO API key eingeben
@@ -536,25 +517,15 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     if (widget.initialSaveData != null) {
-     // _loadFromInitialData();
+     _loadFromInitialData();
     } else {
       _messages = [ChatMessage(text: _generateIntroText(), isUser: false)];
       //_initInventory();
       _saveGame(); 
     }
-    //TODO muss überarbeitet werden sodass nur die antwort angezeigt wird (Neu funktion erstellen die aufgerufen wird)
-    if(widget.kampfAusgang != null) {
-      if(widget.kampfAusgang == 0) {
-        _sendMessage("Der Spieler hat den Kampf gewonnen. Schreib eine Siegesnachricht.");
-      } else if(widget.kampfAusgang == 1) {
-        _sendMessage("Der Spieler ist aus dem Kampf entkommen. Schreib eine Nachricht wie er entkommen ist.");
-      } else if(widget.kampfAusgang == 2) {
-        _sendMessage("Der Spieler hat den Kampf verloren. Schreib eine Nachricht wie er überlebt."); //TODO bei niederlage Spiel vorbei
-      }
-    }
   }
 
-  // Dynamischer Intro-Text basierend auf dem Welt-Setting
+  // Dynamischer Intro-Text basierend auf dem Welt-Setting //TODO nur generieren wenn wenn vorgegebenes abenteuer ausgewählt
   String _generateIntroText() {
     String name = widget.settings.charName;
     String anrede = widget.settings.gender == 'Männlich' ? 'Abenteurer' : (widget.settings.gender == 'Weiblich' ? 'Abenteurerin' : 'Wanderer');
@@ -569,56 +540,13 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  /* void _loadFromInitialData() {
+   void _loadFromInitialData() {
     final save = widget.initialSaveData!;
     
     final List<dynamic> savedChat = save['chat'];
     _messages = savedChat.map((msg) => ChatMessage(text: msg['text'], isUser: msg['isUser'])).toList();
-
-    final List<dynamic> savedInv = save['inventory'] ?? [];
-   _inventory = savedInv.map((item) {
-      IconData icon = Icons.backpack; 
-      if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel") || item['name'].toString().contains("Dolch")) icon = Icons.gavel;
-      if (item['name'].toString().contains("Trank") || item['name'].toString().contains("Kit") || item['name'].toString().contains("Rum")) icon = Icons.science;
-      if (item['name'].toString().contains("Münzen") || item['name'].toString().contains("Gold") || item['name'].toString().contains("Credit")) icon = Icons.monetization_on;
-
-      return InventoryItem(
-        name: item['name'],
-        description: item['description'],
-        quantity: item['quantity'],
-        icon: icon,
-        iconColor: Colors.amber,
-
-      );
-    }).toList();
-
     _scrollToBottom();
   }
-*/
-
-
- /*  void _initInventory() {
-    if (widget.settings.setting == 'Sci-Fi') {
-      _inventory = [
-        InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
-        InventoryItem(name: "Nanomed-Kit", description: "Heilt 30 HP.", quantity: 2, icon: Icons.science, iconColor: Colors.green),
-        InventoryItem(name: "Credit-Chips", description: "Digitale Währung.", quantity: 250, icon: Icons.monetization_on, iconColor: Colors.amber),
-      ];
-    } else if (widget.settings.setting == 'Piraten') {
-      _inventory = [
-        InventoryItem(name: "Rostiger Säbel", description: "Erfüllt seinen Zweck im Nahkampf.", quantity: 1, icon: Icons.gavel, iconColor: Colors.blueGrey),
-        InventoryItem(name: "Buddel edler Rum", description: "Heilt 30 HP.", quantity: 3, icon: Icons.science, iconColor: Colors.deepOrange),
-        InventoryItem(name: "Golddublonen", description: "Glänzendes Beutegut.", quantity: 60, icon: Icons.monetization_on, iconColor: Colors.amber),
-      ];
-    } else {
-      _inventory = [
-        InventoryItem(name: "Eisenschwert", description: "Ein treuer Gefährte.", quantity: 1, icon: Icons.gavel, iconColor: Colors.grey),
-        InventoryItem(name: "Heiltrank", description: "Heilt 30 HP.", quantity: 2, icon: Icons.science, iconColor: Colors.red),
-        InventoryItem(name: "Goldmünzen", description: "Klingende Währung.", quantity: 120, icon: Icons.monetization_on, iconColor: Colors.amber),
-      ];
-    }
-  }
-*/
 
   Future<void> _saveGame() async {
     final prefs = await SharedPreferences.getInstance();
@@ -634,46 +562,8 @@ class _ChatScreenState extends State<ChatScreen> {
     await prefs.setString('savegame_${widget.settings.id}', jsonEncode(gameState));
   }
 
-  // --- LOKALES ITEM BENUTZEN ---
-  bool _handleItemUsage(String text) {
-    final lowerText = text.toLowerCase();
-    
-    if (lowerText.contains("nutze") || lowerText.contains("trinke") || lowerText.contains("heile")) {
-      String targetName = "";
-      if (widget.settings.setting == 'Sci-Fi') {
-        targetName = "nanomed-kit";
-      } else if (widget.settings.setting == 'Piraten') {
-        targetName = "rum";
-      } else {
-        targetName = "heiltrank";
-      }
-
-      try {
-        final item = widget.settings.spieler.items.getItemWithName(targetName);
-        if (item != null) {
-          setState(() {
-            
-            widget.settings.spieler.leben = (widget.settings.spieler.leben + 30).clamp(0, widget.settings.spieler.maxleben);
-            _messages.add(ChatMessage(text: "Du benutzt ${item.name}. Deine Wunden schließen sich (+30 HP).", isUser: false));
-            widget.settings.spieler.items.entferenItem(item);
-          });
-          _saveGame();
-          _scrollToBottom();
-          return true;
-        }
-      } catch (_) {}
-      
-      setState(() {
-        _messages.add(ChatMessage(text: "Du suchst in deinen Taschen, aber du hast keinen solchen Gegenstand mehr!", isUser: false));
-      });
-      _scrollToBottom();
-      return true;
-    }
-    return false;
-  }
-
   Future<String> _fetchRealAIResponse(String userMessage) async {
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${_apiKey.trim()}');
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${_apiKey.trim()}'); //TODO 3.1 flash lite scheint die meisten gratis narchichten zu haben überprüfen falls nicht ändern
     
     final invList = widget.settings.spieler.items.toJson();
     final chatHistory = _messages.length > 10 
@@ -681,27 +571,75 @@ class _ChatScreenState extends State<ChatScreen> {
         : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
 
     final systemInstruction = """
-Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
-Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
+      Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
+      Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
 
-Deine Aufgaben:
-1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
-2. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
+      Deine Aufgaben:
+      1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
+      2. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
 
-WICHTIGE REGELN FÜR DYNAMISCHE WERTE & ITEMS:
-- ANTI-CHEAT AUFHEBEN: Wenn der Spieler versucht etwas aufzuheben, prüfe streng ob es existiert. Wenn JA, antworte normal und hänge in einer NEUEN ZEILE an: [ADD_ITEM:{"name": "Item", "desc": "Beschreibung"}]
-- ITEMS VERLIEREN: Wenn der Spieler einen Gegenstand ablegt, wegwirft, ihm etwas gestohlen wird oder er einen Gegenstand abgibt, hänge an: [REMOVE_ITEM:{"name": "Name aus Inventar", "qty": 1}]
-- SCHADEN / HEILUNG: Wenn der Spieler durch Fallen, Angriffe, Feuer o.ä. Schaden nimmt oder regeneriert (ohne dass er ein lokales Item auslöst), hänge an: [UPDATE_HP:-15] (für 15 Schaden) oder [UPDATE_HP:20] (für Heilung).
-- KAMPF: Wenn ein Kampf startet, ende mit: [START_COMBAT:{"enemy": "Name", "hp": 50}]
+      WICHTIGE REGELN FÜR DYNAMISCHE WERTE & ITEMS:
+      - Du kannst immer nur eine der folgenden option wählen:
 
-Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiteren Text danach.
-""";
+      - AUFHEBEN: Wenn der Spieler versucht etwas aufzuheben, prüfe streng ob es existiert. Wenn JA, antworte normal und hänge in einer NEUEN ZEILE an: [ADD_ITEM:{"name": "Item", "desc": "Beschreibung"}]. Es soll nur möglich sein Gegenstände aufzuheben, die den Spieler Heilen, einem Gegner schaden verursachen oder Flächenschaden verursachen.
+      - HEILENDE ITEMS BENUTZEN: Wenn der Spieler einen heilenden Gegenstand benutzt, hänge an: [HEALING_ITEM:{"name": "Name"}]
+      - ITEMS VERLIEREN: Wenn der Spieler einen Gegenstand ablegt, wegwirft, ihm etwas gestohlen wird oder er einen Gegenstand benutz (mit ausnahem von Heilenden Gegenständen), hänge an: [REMOVE_ITEM:{"name": "Name"}]
+      - SCHADEN / HEILUNG: Wenn der Spieler durch Events in der Story Leben verliert oder regeneriert (ohne dass er ein item benutz), hänge an: [UPDATE_HP:-15] (für 15 Schaden) oder [UPDATE_HP:20] (für Heilung).
+      - KAMPF: Wenn ein Kampf startet, ende mit: [START_COMBAT:{"enemy": "Name", "hp": 50}]
+
+      Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiteren Text danach.
+      """;
 
     final requestBody = {
       "contents": [
         {
           "parts": [
             {"text": "Bisheriger Verlauf:\n$chatHistory\n\nAktuelle Aktion des Spielers: $userMessage"}
+          ]
+        }
+      ],
+      "systemInstruction": {
+        "parts": [{"text": systemInstruction}]
+      }
+    };
+
+    try {
+      final response = await http.post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode(requestBody));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return data['candidates'][0]['content']['parts'][0]['text'];
+      return "Die Magie schwand: ${data['error']['message']}";
+    } catch (e) {
+      return "Der Pfad ist blockiert: $e";
+    }
+  }
+
+  Future<String> _fetchAfterBattleResponse(int gewonnen) async {
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${_apiKey.trim()}');
+
+    final chatHistory = _messages.length > 3 
+        ? _messages.sublist(_messages.length - 3).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
+        : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
+
+    final systemInstruction = """
+      Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
+      Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
+
+      Bedingung:
+      - Der Kampf wurde beendet. Der ausgang ist $gewonnen. 0 == Gewonnen || 1 == Entkommen || 2 == Verloren.
+      - Der Kampf selbst soll nicht beschrieben werden.
+      - Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
+
+      Deine Aufgabe:
+      - wenn Gewonnen: "Der Spieler hat den Kampf gewonnen. Schreib eine Siegesnachricht."
+      - wenn Entkommen: "Der Spieler ist aus dem Kampf entkommen. Schreib eine Nachricht wie er entkommen ist."
+      - wenn Verloren: "Der Spieler hat den Kampf verloren. Schreib eine Nachricht wie er grade so überlebt."
+      """;
+
+    final requestBody = {
+      "contents": [
+        {
+          "parts": [
+            {"text": "Bisheriger Verlauf:\n$chatHistory\n"}
           ]
         }
       ],
@@ -729,12 +667,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     });
     _messageController.clear();
     _scrollToBottom();
-    
-    if (_handleItemUsage(text)) {
-      setState(() => _isLoading = false);
-      return;
-    }
-    
+
     int loadingIndex = _messages.length;
     setState(() => _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)));
     _scrollToBottom();
@@ -742,13 +675,13 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     String aiAnswer = await _fetchRealAIResponse(text);
     String cleanAnswer = aiAnswer;
 
-    // --- 1. HP Updates verarbeiten --- //TODO inventar muss auf Spieler inventar angepasst werden
+    // --- 1. HP Updates verarbeiten ---
     final hpRegex = RegExp(r'\[UPDATE_HP:([+-]?\d+)\]');
     Iterable<RegExpMatch> hpMatches = hpRegex.allMatches(cleanAnswer);
     for (final match in hpMatches) {
       int hpChange = int.tryParse(match.group(1) ?? '0') ?? 0;
       setState(() {
-        widget.settings.spieler.leben = (widget.settings.spieler.leben + hpChange).clamp(0, widget.settings.spieler.maxleben);
+        widget.settings.spieler.leben = (widget.settings.spieler.leben + hpChange).clamp(1, widget.settings.spieler.maxleben);
       });
     }
     cleanAnswer = cleanAnswer.replaceAll(hpRegex, '').trim();
@@ -760,43 +693,81 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
       try {
         final data = jsonDecode(match.group(1)!);
         String name = data['name'];
-        int descqty = data['desc'];
-        
+
+        int idx = widget.settings.spieler.items.getIndex(name);
         setState(() {
-          int idx = widget.settings.spieler.items.getIndex(name);
           if (idx != 999) {
+            Item i = widget.settings.spieler.items.getItem(idx);
             cleanAnswer += "\n\n❌ [Gegenstand verloren: $name]";
-            widget.settings.spieler.items.entferenItem(widget.settings.spieler.items.getItem(idx));
+            widget.settings.spieler.items.entferenItem(i); 
+          } else {
+            cleanAnswer += "\n\n❌ [Gegenstand befindet sich nicht im Inventar: $name]";
           }
         });
       } catch (_) {}
     }
     cleanAnswer = cleanAnswer.replaceAll(removeRegex, '').trim();
 
-    // --- 3. Items aufheben --- //TODO inventar muss auf Spieler inventar angepasst werden
-    final addRegex = RegExp(r'\[ADD_ITEM:(\{.*?\})\]');
+    // --- 2. Heilende Items benutzen ---
+    final healingRegex = RegExp(r'\[HEALING_ITEM:(\{.*?\})\]');
+    Iterable<RegExpMatch> healingMatches = healingRegex.allMatches(cleanAnswer);
+    for (final match in healingMatches) {
+      try {
+        final data = jsonDecode(match.group(1)!);
+        String name = data['name'];
+
+        int idx = widget.settings.spieler.items.getIndex(name);
+        setState(() {
+          if (idx != 999) {
+            Item i = widget.settings.spieler.items.getItem(idx);
+
+            //wenn das item ein Heilgegenstand ist heile den Spieler
+            if(i.aoe == false && i.aufgegner == false) {
+              if( widget.settings.spieler.leben + (i.kraft*widget.settings.spieler.staerke).round() > widget.settings.spieler.maxleben) {
+                widget.settings.spieler.leben =  widget.settings.spieler.maxleben;
+              } else {
+                widget.settings.spieler.leben += (i.kraft*widget.settings.spieler.staerke).round();
+              }
+            }
+
+            cleanAnswer += "\n\n❤️ [Leben durch $name wiederhergestellt]";
+            widget.settings.spieler.items.entferenItem(i); 
+          } else {
+            cleanAnswer += "\n\n\u2764\uFE0F [Gegenstand befindet sich nicht im Inventar: $name]";
+          }
+        });
+      } catch (_) {}
+    }
+    cleanAnswer = cleanAnswer.replaceAll(healingRegex, '').trim();
+
+    // --- 4. Items aufheben ---
+    final addRegex = RegExp(r'\[ADD_ITEM:(\{[\s\S]*?\})\]');
+
     Iterable<RegExpMatch> addMatches = addRegex.allMatches(cleanAnswer);
     for (final match in addMatches) {
       try {
         final data = jsonDecode(match.group(1)!);
-        String name = data['name'];
-        String desc = data['desc'] ?? "";
+        String name = data['name']?.toString() ?? 'Unbekanntes Item';
+        String desc = data['desc']?.toString() ?? '';
         Item neu = await cb.erstelleItem(name, desc, widget.settings);
-        widget.settings.spieler.items.addItem(neu);
         setState(() {
-          
+          widget.settings.spieler.items.addItem(neu);
           cleanAnswer += "\n\n✨ [Gegenstand aufgehoben: $name]";
         });
-      } catch (_) {}
+      } catch (e, s) {
+          debugPrint("ADD_ITEM Error: $e");
+          debugPrintStack(stackTrace: s);
+      }
     }
     cleanAnswer = cleanAnswer.replaceAll(addRegex, '').trim();
 
-    // --- 4. Kampf auslesen ---
+    // --- 5. Kampf auslesen ---
     final combatRegex = RegExp(r'\[START_COMBAT:(\{.*?\})\]');
     Map<String, dynamic>? combatData;
     if (combatRegex.hasMatch(cleanAnswer)) {
       try {
         combatData = jsonDecode(combatRegex.firstMatch(cleanAnswer)!.group(1)!);
+
       } catch (_) {}
     }
     cleanAnswer = cleanAnswer.replaceAll(combatRegex, '').trim();
@@ -808,15 +779,26 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     
     _scrollToBottom();
     await _saveGame(); 
-
+    
     if (combatData != null) {
       if (!mounted) return;
-      Navigator.push(
+      final int kampfAusgang = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => BattleScreen(settings: widget.settings, initialSaveData: widget.initialSaveData, cleanAnswer: cleanAnswer),
         ),
       );
+
+      int afterBattleloadingIndex = _messages.length;
+      setState((){ _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)); _isLoading = true;});
+      _scrollToBottom();
+
+      //Kampfausgang massage
+      String msg = await _fetchAfterBattleResponse(kampfAusgang);
+      setState(() {
+        _messages[afterBattleloadingIndex] = ChatMessage(text: msg, isUser: false);
+        _isLoading = false;
+      });
     }
   }
 
@@ -1254,7 +1236,6 @@ class _StatusScreenState extends State<StatusScreen> {
 }
 
 // --- INVENTAR SCREEN ---
-//TODO Inventar muss auf Spieler angepasst werden
 class InventoryScreen extends StatelessWidget {
   final ItemListe inventory;
   const InventoryScreen({super.key, required this.inventory});
@@ -1302,7 +1283,13 @@ class InventoryScreen extends StatelessWidget {
                 color: const Color(0xFF2D1E10), 
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.auto_awesome, color: Color(0xFFBA9355), size: 28),
+              child: !item.aoe && !item.aufgegner
+                        ? const Icon(Icons.healing, color: Colors.green, size: 28)
+                        : item.aoe && item.aufgegner
+                            ? const Icon(Icons.blur_on, color: Colors.purple, size: 28)
+                            : !item.aoe && item.aufgegner
+                                ? const Icon(Icons.gps_fixed, color: Colors.red, size: 28)
+                                : const Icon(Icons.auto_awesome, color: Color(0xFFBA9355), size: 28),
             ),
             title: Text(
               item.name, 
@@ -1339,7 +1326,7 @@ class InventoryScreen extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
     onPressed: () => Navigator.pop(context),
-    child: const Text("Sack schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+    child: const Text("Inventar schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
   ),
 ],
               ),
@@ -1375,65 +1362,6 @@ class GameMenuDetailScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// --- KAMPF SCREEN ---
-//TODO kann entfernt werden
-class CombatScreen extends StatelessWidget {
-  final String enemyName;
-  final int enemyHp;
-
-  const CombatScreen({
-    super.key, 
-    required this.enemyName, 
-    required this.enemyHp
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.red.withValues(alpha: 0.3))), 
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.85,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D1E10),
-                border: Border.all(color: Colors.redAccent, width: 4),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.gavel, color: Colors.redAccent, size: 60),
-                  const SizedBox(height: 10),
-                  const Text("KAMPF GESTARTET!", style: TextStyle(color: Colors.redAccent, fontSize: 30, fontWeight: FontWeight.bold)),
-                  const Divider(color: Colors.red, thickness: 2),
-                  const SizedBox(height: 20),
-                  Text("Gegner: $enemyName", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Text("Lebenspunkte: $enemyHp HP", style: const TextStyle(color: Colors.orangeAccent, fontSize: 18)),
-                  const SizedBox(height: 40),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)
-                    ),
-                    onPressed: () => Navigator.pop(context), 
-                    child: const Text("Kampf beenden & Fliehen", style: TextStyle(fontSize: 16)),
-                  )
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

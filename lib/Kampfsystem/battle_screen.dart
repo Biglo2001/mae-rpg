@@ -395,8 +395,8 @@ class _BattleScreenState extends State<BattleScreen> {
     );
   }
 
-  void _goToLevelupScreen(BuildContext context) {
-    Navigator.push(
+  void _goToLevelupScreen(BuildContext context) async {
+    final int kampfAusgang = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => LevelUpScreen(
@@ -405,23 +405,33 @@ class _BattleScreenState extends State<BattleScreen> {
         ),
       ),
     );
+
+    if (!context.mounted) return;
+    Navigator.pop(context, kampfAusgang);
   }
 
   void _goToChatScreenEntkommen(BuildContext context) {
+    Navigator.pop(context, 1);
+    
+    /*
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(settings: widget.settings,initialSaveData: widget.initialSaveData, kampfAusgang: 1),
       ),
-    );
+    );*/
   }
 
   void _goToChatScreenVerloren(BuildContext context) {
+    
+    Navigator.pop(context, 2);
+    /*
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(settings: widget.settings,initialSaveData: widget.initialSaveData, kampfAusgang: 2),
       ),
     );
+    */
   }
 }

@@ -9,7 +9,7 @@ import 'item.dart';
 class Chatbot {
   final String _apiKey = ""; //TODO API key eingeben
 
-  final String apiUrl ="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"; //TODO mehrere URL mit unterschiedlichen Modellen erstellen um Token zu sparen
+  final String apiUrl ="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
 
     // ✅ Nachricht senden und Antwort bekommen
 
@@ -220,6 +220,7 @@ class Chatbot {
     - kraft soll zwisch 1 und 5 liegen
   - die Kosten sollen dem Spieler angepasst werden: $spielerJson
   - die Kraft soll niedrig gehalten werden und nur mit einer geringen warscheinlichkeit höher ausfallen.
+  - die erstellte fähigkeiten durfen nicht den geleichen namen und beschreibung wie eine bereites forhandene attacke besitzen: ${settings.spieler.attacken.toJson()}
   ''';
 
     try {

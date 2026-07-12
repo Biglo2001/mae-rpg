@@ -38,18 +38,15 @@ class ItemListe {
         if(i.name == name){
           return x;
         }
-        else x++;
+        else { 
+          x++;
+        }
       }
       return 999;
   }
 
    int getAnzahl(){
-    int x = 0;
-      for(Item i in _items){
-       
-        x++;
-      }
-      return x;
+      return _items.length;
   }
 
   // ✅ fromJson

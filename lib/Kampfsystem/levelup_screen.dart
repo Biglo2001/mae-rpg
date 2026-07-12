@@ -89,13 +89,15 @@ class _LevelUpScreenState extends State<LevelUpScreen> {
     _attributeVergeben();
 
     debugPrint(widget.settings.spieler.toJson().toString());
-
+    /*
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(settings: widget.settings,initialSaveData: widget.initialSaveData, kampfAusgang: 0),
       )
     );
+    */
+    Navigator.pop(context, 0);
   }
 
   Widget _statButton(String stat) {
