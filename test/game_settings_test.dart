@@ -1,4 +1,4 @@
-/*
+
 import 'package:flutter_application_1/Kampfsystem/start_initialirung.dart';
 import 'package:flutter_test/flutter_test.dart';
 // ERSETZE 'dein_projekt_name' durch deinen tatsächlichen Projektnamen
@@ -11,6 +11,7 @@ void main() {
       // 1. Arrange: Test-Objekt erstellen
       final settings = GameSettings(
         id: 'test_123',
+        apiKey: '',
         charName: 'Thorin',
         gender: 'Männlich',
         difficulty: 'Schwer',
@@ -34,6 +35,7 @@ void main() {
       // 1. Arrange: Simuliertes JSON aus der Datenbank/SharedPreferences
       final json = {
         'id': 'test_456',
+        'api_key': 'kein key',
         'char_name': 'Elyra',
         'gender': 'Weiblich',
         'difficulty': 'Leicht',
@@ -54,4 +56,4 @@ void main() {
       expect(settings.usePredefinedAdventure, false);
     });
   });
-}*/
+}
