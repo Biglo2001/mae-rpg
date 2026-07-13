@@ -42,6 +42,7 @@ class ChatMessage {
 
 class GameSettings {
   final String id; 
+  final String apiKey;
   final String charName;
   final String gender;
   final String difficulty;
@@ -51,6 +52,7 @@ class GameSettings {
 
   GameSettings({
     required this.id,
+    required this.apiKey,
     required this.charName,
     required this.gender,
     required this.difficulty,
@@ -61,6 +63,7 @@ class GameSettings {
 
   Map<String, dynamic> toJson() => {
         "id": id,
+        "api_key": apiKey,
         "char_name": charName,
         "gender": gender,
         "difficulty": difficulty,
@@ -72,6 +75,7 @@ class GameSettings {
   factory GameSettings.fromJson(Map<String, dynamic> json) {
     return GameSettings(
       id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      apiKey: json['api_key'],
       charName: json['char_name'] ?? "Wanderer",
       gender: json['gender'] ?? "Divers",
       difficulty: json['difficulty'] ?? "Mittel",
@@ -236,6 +240,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
       final oldSettings = GameSettings.fromJson(importedData['settings']);
       final newSettings = GameSettings(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
+        apiKey: oldSettings.apiKey,
         charName: oldSettings.charName,
         gender: oldSettings.gender,
         difficulty: oldSettings.difficulty,
@@ -375,7 +380,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
   }
 }
 
-// --- SETUP SCREEN (CHARAKTERERSTELLUNG) --- //TODO API key muss beim setup eingegeben werden --> variabel in gamesettings machen setting an chatbot klasse übergeben
+// --- SETUP SCREEN (CHARAKTERERSTELLUNG) ---
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
@@ -385,18 +390,34 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _apiKeyController = TextEditingController();
+
   String _selectedGender = 'Männlich';
   String _selectedDifficulty = 'Mittel';
   String _selectedSetting = 'Mittelalter';
+
   bool _isPredefined = false;
+
+  bool _apiKeyInvalid = false;
+  bool _isCheckingApiKey = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/hintergrund_pergament.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (c, e, s) => Container(color: Colors.black),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.5),
+            ),
+          ),
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
@@ -404,57 +425,204 @@ class _SetupScreenState extends State<SetupScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFFC5A059), size: 30),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFFC5A059),
+                      size: 30,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(height: 10),
-                  const Text("CHARAKTER-SCHMIEDE",
-                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 32, fontWeight: FontWeight.bold)),
+                  const Text(
+                    "CHARAKTER-SCHMIEDE",
+                    style: TextStyle(
+                      color: Color(0xFFC5A059),
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 30),
+
+                  _buildLabel("Ihr Google AI Studio API-Key"),
+
+                  _buildTextField(
+                    _apiKeyController,
+                    "AQ. ...",
+                    isApiField: true,
+                  ),
+
+                  const SizedBox(height: 20),
+
                   _buildLabel("Wie heißt dein Charakter?"),
-                  _buildTextField(_nameController, "Euer Name..."),
+
+                  _buildTextField(
+                    _nameController,
+                    "Euer Name...",
+                  ),
+
                   const SizedBox(height: 20),
+
                   _buildLabel("Geschlecht"),
-                  _buildDropdown(['Männlich', 'Weiblich', 'Divers'], _selectedGender, (v) => setState(() => _selectedGender = v!)),
+
+                  _buildDropdown(
+                    ['Männlich', 'Weiblich', 'Divers'],
+                    _selectedGender,
+                    (v) => setState(() => _selectedGender = v!),
+                  ),
+
                   const SizedBox(height: 20),
+
                   _buildLabel("Schwierigkeit"),
-                  _buildDropdown(['Leicht', 'Mittel', 'Schwer'], _selectedDifficulty, (v) => setState(() => _selectedDifficulty = v!)),
+
+                  _buildDropdown(
+                    ['Leicht', 'Mittel', 'Schwer'],
+                    _selectedDifficulty,
+                    (v) => setState(() => _selectedDifficulty = v!),
+                  ),
+
                   const SizedBox(height: 20),
+
                   _buildLabel("Welt-Setting"),
-                  _buildDropdown(['Mittelalter', 'Sci-Fi', 'Piraten'], _selectedSetting, (v) => setState(() => _selectedSetting = v!)),
+
+                  _buildDropdown(
+                    ['Mittelalter', 'Sci-Fi', 'Piraten'],
+                    _selectedSetting,
+                    (v) => setState(() => _selectedSetting = v!),
+                  ),
+
                   const SizedBox(height: 30),
+
                   Row(
                     children: [
-                      Checkbox(value: _isPredefined, onChanged: (v) => setState(() => _isPredefined = v!), activeColor: const Color(0xFF8A6421)),
-                      const Expanded(child: Text("Ein vorgegebenes Abenteuer spielen?", style: TextStyle(color: Color(0xFFF4EAD4), fontSize: 16))),
+                      Checkbox(
+                        value: _isPredefined,
+                        activeColor: const Color(0xFF8A6421),
+                        onChanged: (v) =>
+                            setState(() => _isPredefined = v!),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Ein vorgegebenes Abenteuer spielen?",
+                          style: TextStyle(
+                            color: Color(0xFFF4EAD4),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+
                   const SizedBox(height: 40),
+
                   Center(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8A6421),
                         foregroundColor: const Color(0xFFF4EAD4),
-                        minimumSize: const Size(200, 60),
+                        minimumSize: const Size(220, 60),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Color(0xFFC5A059), width: 2),
+                          side: const BorderSide(
+                            color: Color(0xFFC5A059),
+                            width: 2,
+                          ),
                         ),
                       ),
-                      onPressed: () {
-                        final name = _nameController.text.isEmpty ? "Namenloser" : _nameController.text;
-                        final settings = GameSettings(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          charName: name,
-                          gender: _selectedGender,
-                          difficulty: _selectedDifficulty,
-                          setting: _selectedSetting,
-                          usePredefinedAdventure: _isPredefined,
-                          spieler: StartInitialisierung.erstelleSpieler(name, _selectedSetting),
-                        );
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
-                      },
-                      child: const Text("Abenteuer Beginnen", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      onPressed: _isCheckingApiKey
+                          ? null
+                          : () async {
+                              final apiKey =
+                                  _apiKeyController.text.trim();
+
+                              if (apiKey.isEmpty) {
+                                setState(() {
+                                  _apiKeyInvalid = true;
+                                });
+                                return;
+                              }
+
+                              setState(() {
+                                _isCheckingApiKey = true;
+                              });
+
+                              final isValid =
+                                  await _validateApiKey(apiKey);
+
+                              setState(() {
+                                _isCheckingApiKey = false;
+                              });
+
+                              if (!isValid) {
+                                setState(() {
+                                  _apiKeyInvalid = true;
+                                });
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Der eingegebene API-Key ist ungültig.",
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              final name =
+                                  _nameController.text.isEmpty
+                                      ? "Namenloser"
+                                      : _nameController.text;
+
+                              final settings = GameSettings(
+                                id: DateTime.now()
+                                    .millisecondsSinceEpoch
+                                    .toString(),
+                                apiKey: apiKey,
+                                charName: name,
+                                gender: _selectedGender,
+                                difficulty:
+                                    _selectedDifficulty,
+                                setting: _selectedSetting,
+                                usePredefinedAdventure:
+                                    _isPredefined,
+                                spieler:
+                                    StartInitialisierung
+                                        .erstelleSpieler(
+                                  name,
+                                  _selectedSetting,
+                                ),
+                              );
+                              if (!context.mounted) return;
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ChatScreen(
+                                    settings: settings,
+                                  ),
+                                ),
+                              );
+                            },
+                      child: _isCheckingApiKey
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child:
+                                  CircularProgressIndicator(
+                                color:
+                                    Color(0xFFF4EAD4),
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : const Text(
+                              "Abenteuer Beginnen",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -466,29 +634,153 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(color: Color(0xFFC5A059), fontSize: 18, fontWeight: FontWeight.w600)));
-  Widget _buildTextField(TextEditingController controller, String hint) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: const Color(0xFFF4EAD4), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF8A6421), width: 2)),
-        child: TextField(controller: controller, decoration: InputDecoration(hintText: hint, border: InputBorder.none), style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18)),
-      );
-  Widget _buildDropdown(List<String> items, String current, Function(String?) onChanged) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: const Color(0xFFF4EAD4), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF8A6421), width: 2)),
-        child: DropdownButton<String>(
-          value: current,
-          isExpanded: true,
-          dropdownColor: const Color(0xFFF4EAD4),
-          iconEnabledColor: const Color(0xFF8A6421),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18)))).toList(),
-          onChanged: onChanged,
-          underline: const SizedBox(),
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFFC5A059),
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    bool isApiField = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4EAD4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isApiField && _apiKeyInvalid
+                  ? Colors.red
+                  : const Color(0xFF8A6421),
+              width: 2,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: isApiField,
+            onChanged: (_) {
+              if (_apiKeyInvalid) {
+                setState(() {
+                  _apiKeyInvalid = false;
+                });
+              }
+            },
+            decoration: InputDecoration(
+              hintText: hint,
+              border: InputBorder.none,
+            ),
+            style: const TextStyle(
+              color: Color(0xFF2D1E10),
+              fontSize: 18,
+            ),
+          ),
+        ),
+        if (isApiField && _apiKeyInvalid)
+          const Padding(
+            padding: EdgeInsets.only(
+              left: 4,
+              top: 6,
+            ),
+            child: Text(
+              "❌ Ungültiger Google AI Studio API-Key",
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown(
+    List<String> items,
+    String current,
+    Function(String?) onChanged,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4EAD4),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF8A6421),
+          width: 2,
+        ),
+      ),
+      child: DropdownButton<String>(
+        value: current,
+        isExpanded: true,
+        underline: const SizedBox(),
+        dropdownColor: const Color(0xFFF4EAD4),
+        iconEnabledColor: const Color(0xFF8A6421),
+        items: items
+            .map(
+              (e) => DropdownMenuItem(
+                value: e,
+                child: Text(
+                  e,
+                  style: const TextStyle(
+                    color: Color(0xFF2D1E10),
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Future<bool> _validateApiKey(String apiKey) async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey.trim()}',),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "contents": [
+            {
+              "parts": [
+                {"text": "test"}
+              ]
+            }
+          ]
+        }),
       );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _apiKeyController.dispose();
+    super.dispose();
+  }
 }
 
 // --- HAUPT CHAT SCREEN ---
-
 class ChatScreen extends StatefulWidget {
   final GameSettings settings;
   final Map<String, dynamic>? initialSaveData; 
@@ -504,10 +796,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final cb = Chatbot();
-  
-  // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
-  final String _apiKey = ""; //TODO API key eingeben
+  late Chatbot cb;
   
   late List<ChatMessage> _messages;
  // late List<InventoryItem> _inventory;
@@ -516,6 +805,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    cb = Chatbot(settings: widget.settings);
     if (widget.initialSaveData != null) {
      _loadFromInitialData();
     } else {
@@ -525,18 +815,29 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Dynamischer Intro-Text basierend auf dem Welt-Setting //TODO nur generieren wenn wenn vorgegebenes abenteuer ausgewählt
+  // Dynamischer Intro-Text basierend auf dem Welt-Setting und Abenteuer vorgegeben
   String _generateIntroText() {
     String name = widget.settings.charName;
     String anrede = widget.settings.gender == 'Männlich' ? 'Abenteurer' : (widget.settings.gender == 'Weiblich' ? 'Abenteurerin' : 'Wanderer');
 
-    if (widget.settings.setting == 'Sci-Fi') {
-      return "Systeme online... Seid gegrüßt, $anrede $name. Ihr erwacht aus dem Kryoschlaf auf der Orbitalstation 'Aegis-IV'. Die Notbeleuchtung flackert rot und dichte Rauchschwaden ziehen durch die Gänge. Euer primäres Ziel ist es, die Brücke zu erreichen, das unbekannte Alien-Notsignal zu entschlüsseln und die Kernreaktoren zu stabilisieren, bevor die Station in die Atmosphäre stürzt. Was tut ihr?";
-    } else if (widget.settings.setting == 'Piraten') {
-      return "Ahoi, $anrede $name! Die Gischt peitscht euch ins Gesicht, als ihr in einer schummrigen Spelunke im Hafen von Tortuga sitzt. Vor euch liegt eine vergilbte Pergamentkarte, die den Weg zur sagenumwobenen 'Insel der verlorenen Seelen' weist. Euer Ziel ist es, eine Crew anzuheuern, die Blockade der königlichen Marine zu durchbrechen und das verfluchte Azteken-Gold zu bergen. Was tut ihr?";
+    if(widget.settings.usePredefinedAdventure) {
+      if (widget.settings.setting == 'Sci-Fi') {
+        return "Systeme online... Seid gegrüßt, $anrede $name. Ihr erwacht aus dem Kryoschlaf auf der Orbitalstation 'Aegis-IV'. Die Notbeleuchtung flackert rot und dichte Rauchschwaden ziehen durch die Gänge. Euer primäres Ziel ist es, die Brücke zu erreichen, das unbekannte Alien-Notsignal zu entschlüsseln und die Kernreaktoren zu stabilisieren, bevor die Station in die Atmosphäre stürzt. Was tut ihr?";
+      } else if (widget.settings.setting == 'Piraten') {
+        return "Ahoi, $anrede $name! Die Gischt peitscht euch ins Gesicht, als ihr in einer schummrigen Spelunke im Hafen von Tortuga sitzt. Vor euch liegt eine vergilbte Pergamentkarte, die den Weg zur sagenumwobenen 'Insel der verlorenen Seelen' weist. Euer Ziel ist es, eine Crew anzuheuern, die Blockade der königlichen Marine zu durchbrechen und das verfluchte Azteken-Gold zu bergen. Was tut ihr?";
+      } else {
+        // Standard: Mittelalter
+        return "Seid gegrüßt, $anrede $name. Ein dichter Nebel liegt über dem Düsterwald, als ihr vor den massiven, moosbewachsenen Toren der vergessenen Festung 'Eisengrab' steht. Legenden besagen, dass tief in den Katakomben das entwendete Sonnen-Relikt eures Ordens ruht. Euer Ziel ist es, unbemerkt einzudringen, die Wachen zu umgehen oder zu bezwingen und das Relikt zu sichern. Was tut ihr?";
+      }
     } else {
-      // Standard: Mittelalter
-      return "Seid gegrüßt, $anrede $name. Ein dichter Nebel liegt über dem Düsterwald, als ihr vor den massiven, moosbewachsenen Toren der vergessenen Festung 'Eisengrab' steht. Legenden besagen, dass tief in den Katakomben das entwendete Sonnen-Relikt eures Ordens ruht. Euer Ziel ist es, unbemerkt einzudringen, die Wachen zu umgehen oder zu bezwingen und das Relikt zu sichern. Was tut ihr?";
+      if (widget.settings.setting == 'Sci-Fi') {
+        return "Systeme online... Seid gegrüßt, $anrede $name. Was tut ihr?";
+      } else if (widget.settings.setting == 'Piraten') {
+        return "Ahoi, $anrede $name! Was tut ihr?";
+      } else {
+        // Standard: Mittelalter
+        return "Seid gegrüßt, $anrede $name. Was tut ihr?";
+      }
     }
   }
 
@@ -563,7 +864,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _fetchRealAIResponse(String userMessage) async {
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${_apiKey.trim()}'); //TODO 3.1 flash lite scheint die meisten gratis narchichten zu haben überprüfen falls nicht ändern
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${widget.settings.apiKey.trim()}');
     
     final invList = widget.settings.spieler.items.toJson();
     final chatHistory = _messages.length > 10 
@@ -582,7 +883,7 @@ class _ChatScreenState extends State<ChatScreen> {
       - Du kannst immer nur eine der folgenden option wählen:
 
       - AUFHEBEN: Wenn der Spieler versucht etwas aufzuheben, prüfe streng ob es existiert. Wenn JA, antworte normal und hänge in einer NEUEN ZEILE an: [ADD_ITEM:{"name": "Item", "desc": "Beschreibung"}]. Es soll nur möglich sein Gegenstände aufzuheben, die den Spieler Heilen, einem Gegner schaden verursachen oder Flächenschaden verursachen.
-      - HEILENDE ITEMS BENUTZEN: Wenn der Spieler einen heilenden Gegenstand benutzt, hänge an: [HEALING_ITEM:{"name": "Name"}]
+      - HEILENDE ITEMS BENUTZEN: Wenn der Spieler einen heilenden Gegenstand benutzt (wenn diese methode benutzt wird ist ITEM VERLIEREN nicht notwendig), hänge an: [HEALING_ITEM:{"name": "Name"}]
       - ITEMS VERLIEREN: Wenn der Spieler einen Gegenstand ablegt, wegwirft, ihm etwas gestohlen wird oder er einen Gegenstand benutz (mit ausnahem von Heilenden Gegenständen), hänge an: [REMOVE_ITEM:{"name": "Name"}]
       - SCHADEN / HEILUNG: Wenn der Spieler durch Events in der Story Leben verliert oder regeneriert (ohne dass er ein item benutz), hänge an: [UPDATE_HP:-15] (für 15 Schaden) oder [UPDATE_HP:20] (für Heilung).
       - KAMPF: Wenn ein Kampf startet, ende mit: [START_COMBAT:{"enemy": "Name", "hp": 50}]
@@ -614,7 +915,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _fetchAfterBattleResponse(int gewonnen) async {
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${_apiKey.trim()}');
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${widget.settings.apiKey.trim()}');
 
     final chatHistory = _messages.length > 3 
         ? _messages.sublist(_messages.length - 3).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
@@ -686,28 +987,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     cleanAnswer = cleanAnswer.replaceAll(hpRegex, '').trim();
 
-    // --- 2. Items entfernen / fallen lassen ---
-    final removeRegex = RegExp(r'\[REMOVE_ITEM:(\{.*?\})\]');
-    Iterable<RegExpMatch> removeMatches = removeRegex.allMatches(cleanAnswer);
-    for (final match in removeMatches) {
-      try {
-        final data = jsonDecode(match.group(1)!);
-        String name = data['name'];
-
-        int idx = widget.settings.spieler.items.getIndex(name);
-        setState(() {
-          if (idx != 999) {
-            Item i = widget.settings.spieler.items.getItem(idx);
-            cleanAnswer += "\n\n❌ [Gegenstand verloren: $name]";
-            widget.settings.spieler.items.entferenItem(i); 
-          } else {
-            cleanAnswer += "\n\n❌ [Gegenstand befindet sich nicht im Inventar: $name]";
-          }
-        });
-      } catch (_) {}
-    }
-    cleanAnswer = cleanAnswer.replaceAll(removeRegex, '').trim();
-
     // --- 2. Heilende Items benutzen ---
     final healingRegex = RegExp(r'\[HEALING_ITEM:(\{.*?\})\]');
     Iterable<RegExpMatch> healingMatches = healingRegex.allMatches(cleanAnswer);
@@ -739,6 +1018,28 @@ class _ChatScreenState extends State<ChatScreen> {
       } catch (_) {}
     }
     cleanAnswer = cleanAnswer.replaceAll(healingRegex, '').trim();
+
+    // --- 3. Items entfernen / fallen lassen ---
+    final removeRegex = RegExp(r'\[REMOVE_ITEM:(\{.*?\})\]');
+    Iterable<RegExpMatch> removeMatches = removeRegex.allMatches(cleanAnswer);
+    for (final match in removeMatches) {
+      try {
+        final data = jsonDecode(match.group(1)!);
+        String name = data['name'];
+
+        int idx = widget.settings.spieler.items.getIndex(name);
+        setState(() {
+          if (idx != 999) {
+            Item i = widget.settings.spieler.items.getItem(idx);
+            cleanAnswer += "\n\n❌ [Gegenstand verloren: $name]";
+            widget.settings.spieler.items.entferenItem(i); 
+          } else {
+            cleanAnswer += "\n\n❌ [Gegenstand befindet sich nicht im Inventar: $name]";
+          }
+        });
+      } catch (_) {}
+    }
+    cleanAnswer = cleanAnswer.replaceAll(removeRegex, '').trim();
 
     // --- 4. Items aufheben ---
     final addRegex = RegExp(r'\[ADD_ITEM:(\{[\s\S]*?\})\]');

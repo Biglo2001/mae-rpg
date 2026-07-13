@@ -7,7 +7,8 @@ import 'attacken_liste.dart';
 import 'item.dart';
 
 class Chatbot {
-  final String _apiKey = ""; //TODO API key eingeben
+  final GameSettings settings;
+  const Chatbot({required this.settings});
 
   final String apiUrl ="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
 
@@ -25,7 +26,7 @@ class Chatbot {
     while (retries < maxRetries) {
       try {
         final response = await http.post(
-          Uri.parse("$apiUrl?key=${_apiKey.trim()}"),
+          Uri.parse("$apiUrl?key=${settings.apiKey.trim()}"),
           headers: {
             "Content-Type": "application/json",
           },
@@ -137,7 +138,7 @@ class Chatbot {
 
     try {
       final response = await http.post(
-        Uri.parse("$apiUrl?key=${_apiKey.trim()}"),
+        Uri.parse("$apiUrl?key=${settings.apiKey.trim()}"),
         headers: {
           "Content-Type": "application/json",
         },
@@ -225,7 +226,7 @@ class Chatbot {
 
     try {
       final response = await http.post(
-        Uri.parse("$apiUrl?key=${_apiKey.trim()}"),
+        Uri.parse("$apiUrl?key=${settings.apiKey.trim()}"),
         headers: {
           "Content-Type": "application/json",
         },
@@ -310,7 +311,7 @@ Future<Item> erstelleItem(String name, String desc, GameSettings settings) async
 
   try {
     final response = await http.post(
-      Uri.parse("$apiUrl?key=${_apiKey.trim()}"),
+      Uri.parse("$apiUrl?key=${settings.apiKey.trim()}"),
       headers: {
         "Content-Type": "application/json",
       },
