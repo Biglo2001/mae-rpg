@@ -21,15 +21,14 @@ class LevelUpScreen extends StatefulWidget {
 class _LevelUpScreenState extends State<LevelUpScreen> {
   String? selectedAttribute;
   int? selectedBox;
-
-  final Chatbot chatbot = Chatbot();
-
+  late Chatbot chatbot;
   AttackenListe? attacken;
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    chatbot = Chatbot(settings: widget.settings);
     _ladeAttacken();
   }
 

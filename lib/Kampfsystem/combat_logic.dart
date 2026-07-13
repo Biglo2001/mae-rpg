@@ -19,16 +19,16 @@ class GameLogic extends ChangeNotifier {
   String cleanAnswer;
   bool imKampf = false;
   Completer<void>? _spielerCompleter;
-  final chatbot = Chatbot();
   bool isSpielerAmZug = false;
+  late Chatbot chatbot;
 
- 
   GameLogic({
     required this.spieler,
     required this.settings,
-    required this.cleanAnswer
-  });
-
+    required this.cleanAnswer,
+  }) {
+    chatbot = Chatbot(settings: settings);
+  }
 
   //Navigations variablen
   Function(Spieler)? onLevelUp;
@@ -37,9 +37,8 @@ class GameLogic extends ChangeNotifier {
   
 
 
-  //erstelle Die gegner
+  //erstelle Die gegner und den Chatbot
    Future<void> gegnerInit() async {
-
     final gegnerListe = await chatbot.erstelleKampfgegner(spieler.toJson().toString(), cleanAnswer, settings);
     //Übergib die erstellten gegner
     combatStart(
