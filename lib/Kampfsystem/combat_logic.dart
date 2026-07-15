@@ -365,14 +365,13 @@ class GameLogic extends ChangeNotifier {
     final random = Random();
     int zahl = random.nextInt(100) + 1;
 
-    if(zahl >= wegrennen) {
+    if(zahl <= wegrennen) {
       combatEnde(1);
     } else {
       combatLog.add(await promptSpielerScheitertWegzurennen());
       notifyListeners();
       beendeSpielerZug();
     }
-
   }
 
   
