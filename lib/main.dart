@@ -1,9 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Für das Kopieren in die Zwischenablage
+import 'package:flutter_application_1/Kampfsystem/battle_screen.dart';
+import 'package:flutter_application_1/Kampfsystem/chat_bot.dart';
+import 'package:flutter_application_1/Kampfsystem/item.dart';
+import 'package:flutter_application_1/Kampfsystem/item_liste.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/map_screen.dart';
+import 'Kampfsystem/spieler.dart';
+import 'Kampfsystem/start_initialirung.dart';
 
 void main() {
   runApp(const ChatBotApp());
@@ -36,68 +42,55 @@ class ChatMessage {
 
 class GameSettings {
   final String id; 
+  final String apiKey;
   final String charName;
   final String gender;
   final String difficulty;
   final String setting;
   final bool usePredefinedAdventure;
-  int hp;
-  int maxHp;
+  final bool showTutorial; // Hinzugefügt
+  Spieler spieler;
 
   GameSettings({
     required this.id,
+    required this.apiKey,
     required this.charName,
     required this.gender,
     required this.difficulty,
     required this.setting,
+    required this.spieler,
     this.usePredefinedAdventure = false,
-    this.hp = 100,
-    this.maxHp = 100,
+    this.showTutorial = false, // Hinzugefügt
   });
 
   Map<String, dynamic> toJson() => {
         "id": id,
+        "api_key": apiKey,
         "char_name": charName,
         "gender": gender,
         "difficulty": difficulty,
         "setting": setting,
+        "spieler": spieler.toJson(),
         "adventure_type": usePredefinedAdventure ? "Vorgegeben" : "Prozedural",
-        "hp": hp,
-        "max_hp": maxHp,
+        "show_tutorial": showTutorial, // Hinzugefügt
       };
 
   factory GameSettings.fromJson(Map<String, dynamic> json) {
     return GameSettings(
       id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      apiKey: json['api_key'],
       charName: json['char_name'] ?? "Wanderer",
       gender: json['gender'] ?? "Divers",
       difficulty: json['difficulty'] ?? "Mittel",
       setting: json['setting'] ?? "Mittelalter",
+      spieler: Spieler.fromJson(json['spieler']),
       usePredefinedAdventure: json['adventure_type'] == "Vorgegeben",
-      hp: json['hp'] ?? 100,
-      maxHp: json['max_hp'] ?? 100,
+      showTutorial: json['show_tutorial'] ?? false, // Hinzugefügt
     );
   }
 }
 
-class InventoryItem {
-  final String name;
-  final String description;
-  int quantity; 
-  final IconData icon;
-  final Color iconColor;
-
-  InventoryItem({
-    required this.name,
-    required this.description,
-    required this.quantity,
-    required this.icon,
-    required this.iconColor,
-  });
-}
-
 // --- STARTBILDSCHIRM ---
-
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});
 
@@ -110,7 +103,7 @@ class StartScreen extends StatelessWidget {
             child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black)),
           ),
           Positioned.fill(
-            child: Container(color: Colors.black.withValues(alpha: 0.4),),
+            child: Container(color: Colors.black.withValues(alpha: 0.4)),
           ),
           Center(
             child: Column(
@@ -202,7 +195,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
         final data = jsonDecode(prefs.getString(key) ?? '');
         loadedSaves.add(data);
       } catch (e) {
-        print("Fehler beim Parsen von Speicherstand $key: $e");
+        debugPrint("Fehler beim Parsen von Speicherstand $key: $e");
       }
     }
 
@@ -250,11 +243,14 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
       final oldSettings = GameSettings.fromJson(importedData['settings']);
       final newSettings = GameSettings(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
+        apiKey: oldSettings.apiKey,
         charName: oldSettings.charName,
         gender: oldSettings.gender,
         difficulty: oldSettings.difficulty,
         setting: oldSettings.setting,
+        spieler: oldSettings.spieler,
         usePredefinedAdventure: oldSettings.usePredefinedAdventure,
+        showTutorial: oldSettings.showTutorial,
       );
 
       final String introText = importedData['intro'] ?? "Abenteuer beginnt...";
@@ -389,7 +385,6 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
 }
 
 // --- SETUP SCREEN (CHARAKTERERSTELLUNG) ---
-
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
@@ -399,18 +394,35 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _apiKeyController = TextEditingController();
+
   String _selectedGender = 'Männlich';
   String _selectedDifficulty = 'Mittel';
   String _selectedSetting = 'Mittelalter';
+
   bool _isPredefined = false;
+  bool _showTutorial = false; // Hinzugefügt
+
+  bool _apiKeyInvalid = false;
+  bool _isCheckingApiKey = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/hintergrund_pergament.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (c, e, s) => Container(color: Colors.black),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.5),
+            ),
+          ),
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
@@ -418,57 +430,226 @@ class _SetupScreenState extends State<SetupScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFFC5A059), size: 30),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFFC5A059),
+                      size: 30,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(height: 10),
-                  const Text("CHARAKTER-SCHMIEDE",
-                      style: TextStyle(color: Color(0xFFC5A059), fontSize: 32, fontWeight: FontWeight.bold)),
+                  const Text(
+                    "CHARAKTER-SCHMIEDE",
+                    style: TextStyle(
+                      color: Color(0xFFC5A059),
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 30),
+
+                  _buildLabel("Ihr Google AI Studio API-Key"),
+
+                  _buildTextField(
+                    _apiKeyController,
+                    "AQ. ...",
+                    isApiField: true,
+                  ),
+
+                  const SizedBox(height: 20),
+
                   _buildLabel("Wie heißt dein Charakter?"),
-                  _buildTextField(_nameController, "Euer Name..."),
+
+                  _buildTextField(
+                    _nameController,
+                    "Euer Name...",
+                  ),
+
                   const SizedBox(height: 20),
+
                   _buildLabel("Geschlecht"),
-                  _buildDropdown(['Männlich', 'Weiblich', 'Divers'], _selectedGender, (v) => setState(() => _selectedGender = v!)),
+
+                  _buildDropdown(
+                    ['Männlich', 'Weiblich', 'Divers'],
+                    _selectedGender,
+                    (v) => setState(() => _selectedGender = v!),
+                  ),
+
                   const SizedBox(height: 20),
+
                   _buildLabel("Schwierigkeit"),
-                  _buildDropdown(['Leicht', 'Mittel', 'Schwer'], _selectedDifficulty, (v) => setState(() => _selectedDifficulty = v!)),
+
+                  _buildDropdown(
+                    ['Leicht', 'Mittel', 'Schwer'],
+                    _selectedDifficulty,
+                    (v) => setState(() => _selectedDifficulty = v!),
+                  ),
+
                   const SizedBox(height: 20),
+
                   _buildLabel("Welt-Setting"),
-                  _buildDropdown(['Mittelalter', 'Sci-Fi', 'Piraten'], _selectedSetting, (v) => setState(() => _selectedSetting = v!)),
+
+                  _buildDropdown(
+                    ['Mittelalter', 'Sci-Fi', 'Piraten'],
+                    _selectedSetting,
+                    (v) => setState(() => _selectedSetting = v!),
+                  ),
+
                   const SizedBox(height: 30),
+
                   Row(
                     children: [
-                      Checkbox(value: _isPredefined, onChanged: (v) => setState(() => _isPredefined = v!), activeColor: const Color(0xFF8A6421)),
-                      const Expanded(child: Text("Ein vorgegebenes Abenteuer spielen?", style: TextStyle(color: Color(0xFFF4EAD4), fontSize: 16))),
+                      Checkbox(
+                        value: _isPredefined,
+                        activeColor: const Color(0xFF8A6421),
+                        onChanged: (v) =>
+                            setState(() => _isPredefined = v!),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Ein vorgegebenes Abenteuer spielen?",
+                          style: TextStyle(
+                            color: Color(0xFFF4EAD4),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+
+                  // Hinzugefügte Checkbox für das Tutorial
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _showTutorial,
+                        activeColor: const Color(0xFF8A6421),
+                        onChanged: (v) =>
+                            setState(() => _showTutorial = v!),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Test Tutorial aktivieren? (Empfohlen für Neulinge)",
+                          style: TextStyle(
+                            color: Color(0xFFF4EAD4),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 40),
+
                   Center(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8A6421),
                         foregroundColor: const Color(0xFFF4EAD4),
-                        minimumSize: const Size(200, 60),
+                        minimumSize: const Size(220, 60),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Color(0xFFC5A059), width: 2),
+                          side: const BorderSide(
+                            color: Color(0xFFC5A059),
+                            width: 2,
+                          ),
                         ),
                       ),
-                      onPressed: () {
-                        final settings = GameSettings(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          charName: _nameController.text.isEmpty ? "Namenloser" : _nameController.text,
-                          gender: _selectedGender,
-                          difficulty: _selectedDifficulty,
-                          setting: _selectedSetting,
-                          usePredefinedAdventure: _isPredefined,
-                          hp: 100, 
-                          maxHp: 100,
-                        );
-                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ChatScreen(settings: settings)));
-                      },
-                      child: const Text("Abenteuer Beginnen", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      onPressed: _isCheckingApiKey
+                          ? null
+                          : () async {
+                              final apiKey =
+                                  _apiKeyController.text.trim();
+
+                              if (apiKey.isEmpty) {
+                                setState(() {
+                                  _apiKeyInvalid = true;
+                                });
+                                return;
+                              }
+
+                              setState(() {
+                                _isCheckingApiKey = true;
+                              });
+
+                              final isValid =
+                                  await _validateApiKey(apiKey);
+
+                              setState(() {
+                                _isCheckingApiKey = false;
+                              });
+
+                              if (!isValid) {
+                                setState(() {
+                                  _apiKeyInvalid = true;
+                                });
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Der eingegebene API-Key ist ungültig.",
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              final name =
+                                  _nameController.text.isEmpty
+                                      ? "Namenloser"
+                                      : _nameController.text;
+
+                              final settings = GameSettings(
+                                id: DateTime.now()
+                                    .millisecondsSinceEpoch
+                                    .toString(),
+                                apiKey: apiKey,
+                                charName: name,
+                                gender: _selectedGender,
+                                difficulty:
+                                    _selectedDifficulty,
+                                setting: _selectedSetting,
+                                usePredefinedAdventure:
+                                    _isPredefined,
+                                showTutorial: _showTutorial, // Hinzugefügt
+                                spieler:
+                                    StartInitialisierung
+                                        .erstelleSpieler(
+                                  name,
+                                  _selectedSetting,
+                                ),
+                              );
+                              if (!context.mounted) return;
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ChatScreen(
+                                    settings: settings,
+                                  ),
+                                ),
+                              );
+                            },
+                      child: _isCheckingApiKey
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child:
+                                  CircularProgressIndicator(
+                                color:
+                                    Color(0xFFF4EAD4),
+                                strokeWidth: 3,
+                              ),
+                            )
+                          : const Text(
+                              "Abenteuer Beginnen",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -480,34 +661,159 @@ class _SetupScreenState extends State<SetupScreen> {
     );
   }
 
-  Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(color: Color(0xFFC5A059), fontSize: 18, fontWeight: FontWeight.w600)));
-  Widget _buildTextField(TextEditingController controller, String hint) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: const Color(0xFFF4EAD4), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF8A6421), width: 2)),
-        child: TextField(controller: controller, decoration: InputDecoration(hintText: hint, border: InputBorder.none), style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18)),
-      );
-  Widget _buildDropdown(List<String> items, String current, Function(String?) onChanged) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: const Color(0xFFF4EAD4), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF8A6421), width: 2)),
-        child: DropdownButton<String>(
-          value: current,
-          isExpanded: true,
-          dropdownColor: const Color(0xFFF4EAD4),
-          iconEnabledColor: const Color(0xFF8A6421),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18)))).toList(),
-          onChanged: onChanged,
-          underline: const SizedBox(),
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFFC5A059),
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    bool isApiField = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4EAD4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isApiField && _apiKeyInvalid
+                  ? Colors.red
+                  : const Color(0xFF8A6421),
+              width: 2,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: isApiField,
+            onChanged: (_) {
+              if (_apiKeyInvalid) {
+                setState(() {
+                  _apiKeyInvalid = false;
+                });
+              }
+            },
+            decoration: InputDecoration(
+              hintText: hint,
+              border: InputBorder.none,
+            ),
+            style: const TextStyle(
+              color: Color(0xFF2D1E10),
+              fontSize: 18,
+            ),
+          ),
+        ),
+        if (isApiField && _apiKeyInvalid)
+          const Padding(
+            padding: EdgeInsets.only(
+              left: 4,
+              top: 6,
+            ),
+            child: Text(
+              "❌ Ungültiger Google AI Studio API-Key",
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown(
+    List<String> items,
+    String current,
+    Function(String?) onChanged,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4EAD4),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF8A6421),
+          width: 2,
+        ),
+      ),
+      child: DropdownButton<String>(
+        value: current,
+        isExpanded: true,
+        underline: const SizedBox(),
+        dropdownColor: const Color(0xFFF4EAD4),
+        iconEnabledColor: const Color(0xFF8A6421),
+        items: items
+            .map(
+              (e) => DropdownMenuItem(
+                value: e,
+                child: Text(
+                  e,
+                  style: const TextStyle(
+                    color: Color(0xFF2D1E10),
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Future<bool> _validateApiKey(String apiKey) async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey.trim()}',),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "contents": [
+            {
+              "parts": [
+                {"text": "test"}
+              ]
+            }
+          ]
+        }),
       );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _apiKeyController.dispose();
+    super.dispose();
+  }
 }
 
 // --- HAUPT CHAT SCREEN ---
-
 class ChatScreen extends StatefulWidget {
   final GameSettings settings;
   final Map<String, dynamic>? initialSaveData; 
+  final int? kampfAusgang;
 
-  const ChatScreen({super.key, required this.settings, this.initialSaveData});
+  const ChatScreen({super.key, required this.settings, this.initialSaveData, this.kampfAusgang});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -517,160 +823,162 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
-  // BITTE HIER DEINEN EIGENEN API KEY EINSETZEN
-  final String _apiKey = "";
+  late Chatbot cb;
   
   late List<ChatMessage> _messages;
-  late List<InventoryItem> _inventory;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    cb = Chatbot(settings: widget.settings);
     if (widget.initialSaveData != null) {
-      _loadFromInitialData();
+     _loadFromInitialData();
     } else {
-      _messages = [ChatMessage(text: "Seid gegrüßt, ${widget.settings.charName}. Euer Abenteuer im Setting '${widget.settings.setting}' beginnt nun. Was wollt ihr tun?", isUser: false)];
-      _initInventory();
+      _messages = [ChatMessage(text: _generateIntroText(), isUser: false)];
       _saveGame(); 
     }
   }
 
-  void _loadFromInitialData() {
+// Dynamischer Intro-Text oder Tutorial-Inhalt beim Spielstart
+  String _generateIntroText() {
+    // Wenn das Tutorial aktiv ist, zeige die statische Erklärung an, um Tokens zu sparen!
+    if (widget.settings.showTutorial) {
+      return '''📜 WILLKOMMEN IM ABENTEUER! 📜
+
+Da du neu in der Welt der Textadventures bist, hier die wichtigsten Grundlagen:
+
+1. FREIE INTERAKTION: Du kannst im Textfeld unten völlig frei beschreiben, was du tun möchtest (z.B. "Ich untersuche die Truhe" oder "Ich spreche mit dem Wirt"). Die KI reagiert dynamisch darauf!
+
+2. GEGENSTÄNDE NUTZEN: Wenn du ein Item aus deinem Inventar nutzen möchtest, schreibe das einfach direkt in deine Aktion – zum Beispiel: "Ich trinke den Heiltrank" oder "Ich benutze [Item-Name]". Das Spiel erkennt dies und verrechnet die Effekte automatisch mit deinen Statuswerten.
+
+3. KAMPFSYSTEM: Sobald du auf einen Gegner triffst und ein Kampf unvermeidbar wird, wechselt das Spiel automatisch vom Chat-Modus in einen taktischen Kampfbildschirm. Dort bestreitest du das Gefecht rundenbasiert, bis du siegreich bist oder fliehen kannst.
+
+Tipp für den Start: Schau dich zuerst genau um. Schreibe deine erste Aktion in das Textfeld, um deine Reise zu beginnen!''';
+    }
+
+    String name = widget.settings.charName;
+    String anrede = widget.settings.gender == 'Männlich' ? 'Abenteurer' : (widget.settings.gender == 'Weiblich' ? 'Abenteurerin' : 'Wanderer');
+
+    if(widget.settings.usePredefinedAdventure) {
+      if (widget.settings.setting == 'Sci-Fi') {
+        return "Systeme online... Seid gegrüßt, $anrede $name. Ihr erwacht aus dem Kryoschlaf auf der Orbitalstation 'Aegis-IV'. Die Notbeleuchtung flackert rot und dichte Rauchschwaden ziehen durch die Gänge. Euer primäres Ziel ist es, die Brücke zu erreichen, das unbekannte Alien-Notsignal zu entschlüsseln und die Kernreaktoren zu stabilisieren, bevor die Station in die Atmosphäre stürzt. Was tut ihr?";
+      } else if (widget.settings.setting == 'Piraten') {
+        return "Ahoi, $anrede $name! Die Gischt peitscht euch ins Gesicht, als ihr in einer schummrigen Spelunke im Hafen von Tortuga sitsen. Vor euch liegt eine vergilbte Pergamentkarte, die den Weg zur sagenumwobenen 'Insel der verlorenen Seelen' weist. Euer Ziel ist es, eine Crew anzuheuern, die Blockade der königlichen Marine zu durchbrechen und das verfluchte Azteken-Gold zu bergen. Was tut ihr?";
+      } else {
+        // Standard: Mittelalter
+        return "Seid gegrüßt, $anrede $name. Ein dichter Nebel liegt über dem Düsterwald, als ihr vor den massiven, moosbewachsenen Toren der vergessenen Festung 'Eisengrab' steht. Legenden besagen, dass tief in den Katakomben das entwendete Sonnen-Relikt eures Ordens ruht. Euer Ziel ist es, unbemerkt einzudringen, die Wachen zu umgehen oder zu bezwingen und das Relikt zu sichern. Was tut ihr?";
+      }
+    } else {
+      if (widget.settings.setting == 'Sci-Fi') {
+        return "Systeme online... Seid gegrüßt, $anrede $name. Was tut ihr?";
+      } else if (widget.settings.setting == 'Piraten') {
+        return "Ahoi, $anrede $name! Was tut ihr?";
+      } else {
+        // Standard: Mittelalter
+        return "Seid gegrüßt, $anrede $name. Was tut ihr?";
+      }
+    }
+  }
+
+   void _loadFromInitialData() {
     final save = widget.initialSaveData!;
     
     final List<dynamic> savedChat = save['chat'];
     _messages = savedChat.map((msg) => ChatMessage(text: msg['text'], isUser: msg['isUser'])).toList();
-
-    final List<dynamic> savedInv = save['inventory'] ?? [];
-    _inventory = savedInv.map((item) {
-      IconData icon = Icons.backpack; 
-      if (item['name'].toString().contains("Schwert") || item['name'].toString().contains("Säbel") || item['name'].toString().contains("Dolch")) icon = Icons.gavel;
-      if (item['name'].toString().contains("Trank") || item['name'].toString().contains("Kit") || item['name'].toString().contains("Rum")) icon = Icons.science;
-      if (item['name'].toString().contains("Münzen") || item['name'].toString().contains("Gold") || item['name'].toString().contains("Credit")) icon = Icons.monetization_on;
-
-      return InventoryItem(
-        name: item['name'],
-        description: item['description'],
-        quantity: item['quantity'],
-        icon: icon,
-        iconColor: Colors.amber,
-      );
-    }).toList();
-
     _scrollToBottom();
-  }
-
-  void _initInventory() {
-    if (widget.settings.setting == 'Sci-Fi') {
-      _inventory = [
-        InventoryItem(name: "Blaster-Pistole", description: "Modell 'Nova-7'.", quantity: 1, icon: Icons.bolt, iconColor: Colors.blue),
-        InventoryItem(name: "Nanomed-Kit", description: "Heilt 30 HP.", quantity: 2, icon: Icons.science, iconColor: Colors.green),
-        InventoryItem(name: "Credit-Chips", description: "Digitale Währung.", quantity: 250, icon: Icons.monetization_on, iconColor: Colors.amber),
-      ];
-    } else if (widget.settings.setting == 'Piraten') {
-      _inventory = [
-        InventoryItem(name: "Rostiger Säbel", description: "Erfüllt seinen Zweck im Nahkampf.", quantity: 1, icon: Icons.gavel, iconColor: Colors.blueGrey),
-        InventoryItem(name: "Buddel edler Rum", description: "Heilt 30 HP.", quantity: 3, icon: Icons.science, iconColor: Colors.deepOrange),
-        InventoryItem(name: "Golddublonen", description: "Glänzendes Beutegut.", quantity: 60, icon: Icons.monetization_on, iconColor: Colors.amber),
-      ];
-    } else {
-      _inventory = [
-        InventoryItem(name: "Eisenschwert", description: "Ein treuer Gefährte.", quantity: 1, icon: Icons.gavel, iconColor: Colors.grey),
-        InventoryItem(name: "Heiltrank", description: "Heilt 30 HP.", quantity: 2, icon: Icons.science, iconColor: Colors.red),
-        InventoryItem(name: "Goldmünzen", description: "Klingende Währung.", quantity: 120, icon: Icons.monetization_on, iconColor: Colors.amber),
-      ];
-    }
   }
 
   Future<void> _saveGame() async {
     final prefs = await SharedPreferences.getInstance();
     List<Map<String, dynamic>> chatJson = _messages.map((msg) => {'text': msg.text, 'isUser': msg.isUser}).toList();
-    List<Map<String, dynamic>> inventoryJson = _inventory.map((item) => {'name': item.name, 'description': item.description, 'quantity': item.quantity}).toList();
 
     Map<String, dynamic> gameState = {
       'settings': widget.settings.toJson(),
       'chat': chatJson,
-      'inventory': inventoryJson,
     };
 
     await prefs.setString('savegame_${widget.settings.id}', jsonEncode(gameState));
   }
 
-  // --- LOKALES ITEM BENUTZEN ---
-  bool _handleItemUsage(String text) {
-    final lowerText = text.toLowerCase();
-    
-    if (lowerText.contains("nutze") || lowerText.contains("trinke") || lowerText.contains("heile")) {
-      String targetName = "";
-      if (widget.settings.setting == 'Sci-Fi') {
-        targetName = "nanomed-kit";
-      } else if (widget.settings.setting == 'Piraten') {
-        targetName = "rum";
-      }
-      else {
-        targetName = "heiltrank";
-      }
-
-      try {
-        final item = _inventory.firstWhere((element) => element.name.toLowerCase().contains(targetName));
-        if (item.quantity > 0) {
-          setState(() {
-            item.quantity--;
-            widget.settings.hp = (widget.settings.hp + 30).clamp(0, widget.settings.maxHp);
-            _messages.add(ChatMessage(text: "Du benutzt ${item.name}. Deine Wunden schließen sich (+30 HP).", isUser: false));
-            
-            // WICHTIG: Wenn die Menge auf 0 fällt, löschen wir das Item komplett!
-            if (item.quantity <= 0) {
-              _inventory.remove(item);
-            }
-          });
-          _saveGame();
-          _scrollToBottom();
-          return true;
-        }
-      } catch (_) {}
-      
-      setState(() {
-        _messages.add(ChatMessage(text: "Du suchst in deinen Taschen, aber du hast keinen solchen Gegenstand mehr!", isUser: false));
-      });
-      _scrollToBottom();
-      return true;
-    }
-    return false;
-  }
-
   Future<String> _fetchRealAIResponse(String userMessage) async {
-    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${_apiKey.trim()}');
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${widget.settings.apiKey.trim()}');
     
-    final invList = _inventory.map((e) => "${e.name} (x${e.quantity})").join(", ");
+    final invList = widget.settings.spieler.items.toJson();
     final chatHistory = _messages.length > 10 
         ? _messages.sublist(_messages.length - 10).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
         : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
 
     final systemInstruction = """
-Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
-Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.hp}/${widget.settings.maxHp}.
+      Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
+      Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
 
-Deine Aufgaben:
-1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
-2. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
+      Deine Aufgaben:
+      1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
+      2. Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
 
-WICHTIGE REGELN FÜR DYNAMISCHE WERTE & ITEMS:
-- ANTI-CHEAT AUFHEBEN: Wenn der Spieler versucht etwas aufzuheben, prüfe streng ob es existiert. Wenn JA, antworte normal und hänge in einer NEUEN ZEILE an: [ADD_ITEM:{"name": "Item", "desc": "Beschreibung"}]
-- ITEMS VERLIEREN: Wenn der Spieler einen Gegenstand ablegt, wegwirft, ihm etwas gestohlen wird oder er einen Gegenstand abgibt, hänge an: [REMOVE_ITEM:{"name": "Name aus Inventar", "qty": 1}]
-- SCHADEN / HEILUNG: Wenn der Spieler durch Fallen, Angriffe, Feuer o.ä. Schaden nimmt oder regeneriert (ohne dass er ein lokales Item auslöst), hänge an: [UPDATE_HP:-15] (für 15 Schaden) oder [UPDATE_HP:20] (für Heilung).
-- KAMPF: Wenn ein Kampf startet, ende mit: [START_COMBAT:{"enemy": "Name", "hp": 50}]
+      WICHTIGE REGELN FÜR DYNAMISCHE WERTE & ITEMS:
+      - Du kannst immer nur eine der folgenden option wählen:
 
-Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiteren Text danach.
-""";
+      - AUFHEBEN: Wenn der Spieler versucht etwas aufzuheben, prüfe streng ob es existiert. Wenn JA, antworte normal und hänge in einer NEUEN ZEILE an: [ADD_ITEM:{"name": "Item", "desc": "Beschreibung"}]. Es soll nur möglich sein Gegenstände aufzuheben, die den Spieler Heilen, einem Gegner schaden verursachen oder Flächenschaden verursachen.
+      - HEILENDE ITEMS BENUTZEN: Wenn der Spieler einen heilenden Gegenstand benutzt (wenn diese methode benutzt wird ist ITEM VERLIEREN nicht notwendig), hänge an: [HEALING_ITEM:{"name": "Name"}]
+      - ITEMS VERLIEREN: Wenn der Spieler einen Gegenstand ablegt, wegwirft, ihm etwas gestohlen wird oder er einen Gegenstand benutz (mit ausnahem von Heilenden Gegenständen), hänge an: [REMOVE_ITEM:{"name": "Name"}]
+      - SCHADEN / HEILUNG: Wenn der Spieler durch Events in der Story Leben verliert oder regeneriert (ohne dass er ein item benutz), hänge an: [UPDATE_HP:-15] (für 15 Schaden) oder [UPDATE_HP:20] (für Heilung).
+      - KAMPF: Wenn ein Kampf startet, ende mit: [START_COMBAT:{"enemy": "Name", "hp": 50}]
+
+      Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiteren Text danach.
+      """;
 
     final requestBody = {
       "contents": [
         {
           "parts": [
             {"text": "Bisheriger Verlauf:\n$chatHistory\n\nAktuelle Aktion des Spielers: $userMessage"}
+          ]
+        }
+      ],
+      "systemInstruction": {
+        "parts": [{"text": systemInstruction}]
+      }
+    };
+
+    try {
+      final response = await http.post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode(requestBody));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) return data['candidates'][0]['content']['parts'][0]['text'];
+      return "Die Magie schwand: ${data['error']['message']}";
+    } catch (e) {
+      return "Der Pfad ist blockiert: $e";
+    }
+  }
+
+  Future<String> _fetchAfterBattleResponse(int gewonnen) async {
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${widget.settings.apiKey.trim()}');
+
+    final chatHistory = _messages.length > 3 
+        ? _messages.sublist(_messages.length - 3).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
+        : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
+
+    final systemInstruction = """
+      Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
+      Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
+
+      Bedingung:
+      - Der Kampf wurde beendet. Der ausgang ist $gewonnen. 0 == Gewonnen || 1 == Entkommen || 2 == Verloren.
+      - Der Kampf selbst soll nicht beschrieben werden.
+      - Halte deine Antworten atmosphärisch, aber kurz (max. 3-4 Sätze).
+
+      Deine Aufgabe:
+      - wenn Gewonnen: "Der Spieler hat den Kampf gewonnen. Schreib eine Siegesnachricht."
+      - wenn Entkommen: "Der Spieler ist aus dem Kampf entkommen. Schreib eine Nachricht wie er entkommen ist."
+      - wenn Verloren: "Der Spieler hat den Kampf verloren. Schreib eine Nachricht wie er grade so überlebt."
+      """;
+
+    final requestBody = {
+      "contents": [
+        {
+          "parts": [
+            {"text": "Bisheriger Verlauf:\n$chatHistory\n"}
           ]
         }
       ],
@@ -698,12 +1006,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     });
     _messageController.clear();
     _scrollToBottom();
-    
-    if (_handleItemUsage(text)) {
-      setState(() => _isLoading = false);
-      return;
-    }
-    
+
     int loadingIndex = _messages.length;
     setState(() => _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)));
     _scrollToBottom();
@@ -717,67 +1020,97 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     for (final match in hpMatches) {
       int hpChange = int.tryParse(match.group(1) ?? '0') ?? 0;
       setState(() {
-        widget.settings.hp = (widget.settings.hp + hpChange).clamp(0, widget.settings.maxHp);
+        widget.settings.spieler.leben = (widget.settings.spieler.leben + hpChange).clamp(1, widget.settings.spieler.maxleben);
       });
     }
     cleanAnswer = cleanAnswer.replaceAll(hpRegex, '').trim();
 
-    // --- 2. Items entfernen / fallen lassen ---
+    // --- 2. Heilende Items benutzen ---
+    final healingRegex = RegExp(r'\[HEALING_ITEM:(\{.*?\})\]');
+    Iterable<RegExpMatch> healingMatches = healingRegex.allMatches(cleanAnswer);
+    for (final match in healingMatches) {
+      try {
+        final data = jsonDecode(match.group(1)!);
+        String name = data['name'];
+
+        int idx = widget.settings.spieler.items.getIndex(name);
+        setState(() {
+          if (idx != 999) {
+            Item i = widget.settings.spieler.items.getItem(idx);
+
+            // wenn das item ein Heilgegenstand ist heile den Spieler
+            if(i.aoe == false && i.aufgegner == false) {
+              if( widget.settings.spieler.leben + (i.kraft*widget.settings.spieler.staerke).round() > widget.settings.spieler.maxleben) {
+                widget.settings.spieler.leben =  widget.settings.spieler.maxleben;
+              } else {
+                widget.settings.spieler.leben += (i.kraft*widget.settings.spieler.staerke).round();
+              }
+            }
+
+            cleanAnswer += "\n\n❤️ [Leben durch $name wiederhergestellt]";
+            widget.settings.spieler.items.entferenItem(i); 
+          } else {
+            cleanAnswer += "\n\n❤️ [Gegenstand befindet sich nicht im Inventar: $name]";
+          }
+        });
+      } catch (_) {}
+    }
+    cleanAnswer = cleanAnswer.replaceAll(healingRegex, '').trim();
+
+    // --- 3. Items entfernen / fallen lassen ---
     final removeRegex = RegExp(r'\[REMOVE_ITEM:(\{.*?\})\]');
     Iterable<RegExpMatch> removeMatches = removeRegex.allMatches(cleanAnswer);
     for (final match in removeMatches) {
       try {
         final data = jsonDecode(match.group(1)!);
         String name = data['name'];
-        int qty = data['qty'] ?? 1;
-        
+
+        int idx = widget.settings.spieler.items.getIndex(name);
         setState(() {
-          int idx = _inventory.indexWhere((i) => i.name.toLowerCase() == name.toLowerCase());
-          if (idx != -1) {
-            _inventory[idx].quantity -= qty;
+          if (idx != 999) {
+            Item i = widget.settings.spieler.items.getItem(idx);
             cleanAnswer += "\n\n❌ [Gegenstand verloren: $name]";
-            if (_inventory[idx].quantity <= 0) {
-              _inventory.removeAt(idx);
-            }
+            widget.settings.spieler.items.entferenItem(i); 
+          } else {
+            cleanAnswer += "\n\n❌ [Gegenstand befindet sich nicht im Inventar: $name]";
           }
         });
       } catch (_) {}
     }
     cleanAnswer = cleanAnswer.replaceAll(removeRegex, '').trim();
 
-    // --- 3. Items aufheben ---
-    final addRegex = RegExp(r'\[ADD_ITEM:(\{.*?\})\]');
+    // --- 4. Items aufheben ---
+    final addRegex = RegExp(r'\[ADD_ITEM:(\{[\s\S]*?\})\]');
+
     Iterable<RegExpMatch> addMatches = addRegex.allMatches(cleanAnswer);
     for (final match in addMatches) {
       try {
         final data = jsonDecode(match.group(1)!);
-        String name = data['name'];
-        String desc = data['desc'] ?? "";
-        
+        String name = data['name']?.toString() ?? 'Unbekanntes Item';
+        String desc = data['desc']?.toString() ?? '';
+        Item neu = await cb.erstelleItem(name, desc, widget.settings);
         setState(() {
-          int existingIndex = _inventory.indexWhere((e) => e.name.toLowerCase() == name.toLowerCase());
-          if (existingIndex != -1) {
-            _inventory[existingIndex].quantity++;
-          } else {
-            _inventory.add(InventoryItem(name: name, description: desc, quantity: 1, icon: Icons.star, iconColor: Colors.amber));
-          }
+          widget.settings.spieler.items.addItem(neu);
           cleanAnswer += "\n\n✨ [Gegenstand aufgehoben: $name]";
         });
-      } catch (_) {}
+      } catch (e, s) {
+          debugPrint("ADD_ITEM Error: $e");
+          debugPrintStack(stackTrace: s);
+      }
     }
     cleanAnswer = cleanAnswer.replaceAll(addRegex, '').trim();
 
-    // --- 4. Kampf auslesen ---
+    // --- 5. Kampf auslesen ---
     final combatRegex = RegExp(r'\[START_COMBAT:(\{.*?\})\]');
     Map<String, dynamic>? combatData;
     if (combatRegex.hasMatch(cleanAnswer)) {
       try {
         combatData = jsonDecode(combatRegex.firstMatch(cleanAnswer)!.group(1)!);
+
       } catch (_) {}
     }
     cleanAnswer = cleanAnswer.replaceAll(combatRegex, '').trim();
 
-    // Text aktualisieren & Lade-Zustand beenden
     setState(() {
       _messages[loadingIndex] = ChatMessage(text: cleanAnswer, isUser: false);
       _isLoading = false;
@@ -785,19 +1118,26 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
     
     _scrollToBottom();
     await _saveGame(); 
-
-    // Gegebenenfalls Kampf starten
+    
     if (combatData != null) {
       if (!mounted) return;
-      Navigator.push(
+      final int kampfAusgang = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => CombatScreen(
-            enemyName: combatData!['enemy'] ?? "Unbekannter Gegner",
-            enemyHp: combatData['hp'] ?? 50,
-          ),
+          builder: (context) => BattleScreen(settings: widget.settings, initialSaveData: widget.initialSaveData, cleanAnswer: cleanAnswer),
         ),
       );
+
+      int afterBattleloadingIndex = _messages.length;
+      setState((){ _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)); _isLoading = true;});
+      _scrollToBottom();
+
+      // Kampfausgang Nachricht holen
+      String msg = await _fetchAfterBattleResponse(kampfAusgang);
+      setState(() {
+        _messages[afterBattleloadingIndex] = ChatMessage(text: msg, isUser: false);
+        _isLoading = false;
+      });
     }
   }
 
@@ -817,7 +1157,6 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
           SafeArea(
             child: Column(
               children: [
-                // --- OBERE LEISTE MIT DYNAMISCHER HP-ANZEIGE ---
                 Padding(
                   padding: const EdgeInsets.only(left: 12.0, right: 16.0, top: 12.0, bottom: 4.0),
                   child: Row(
@@ -840,8 +1179,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
                             children: [
                               const Icon(Icons.favorite, color: Colors.redAccent, size: 22),
                               const SizedBox(width: 6),
-                              // Diese Zahl aktualisiert sich jetzt durch setState sofort!
-                              Text("${widget.settings.hp}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text("${widget.settings.spieler.leben}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 18, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 12),
                               const Icon(Icons.menu, color: Color(0xFFF4EAD4), size: 26),
                             ],
@@ -925,7 +1263,7 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
           if (isStatus) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => StatusScreen(settings: widget.settings)));
           } else if (isInventory) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen(inventory: _inventory)));
+            Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen(inventory: widget.settings.spieler.items)));
           } else if (title == "Karte") {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const MapScreen()));
           } else {
@@ -956,45 +1294,127 @@ Achtung: Gib immer nur die reinen Tags in neuen Zeilen am Ende an, keinen weiter
 
 // --- STATUS SCREEN ---
 
-class StatusScreen extends StatelessWidget {
+class StatusScreen extends StatefulWidget {
   final GameSettings settings;
-  const StatusScreen({super.key, required this.settings});
 
+  const StatusScreen({
+    super.key,
+    required this.settings,
+  });
+
+  @override
+  State<StatusScreen> createState() => _StatusScreenState();
+}
+
+class _StatusScreenState extends State<StatusScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.black.withValues(alpha: 0.5))),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/hintergrund_pergament.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (c, e, s) => Container(color: Colors.black),
+            ),
+          ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withValues(alpha: 0.5)),
+          ),
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.85,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: const Color(0xFFF4EAD4),
-                border: Border.all(color: const Color(0xFF8A6421), width: 4),
+                border: Border.all(
+                  color: const Color(0xFF8A6421),
+                  width: 4,
+                ),
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 15)],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("HELDEN-STATUS", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 20, endIndent: 20),
-                  const SizedBox(height: 20),
-                  _buildStatusRow(Icons.person, "Name", settings.charName),
-                  _buildStatusRow(Icons.favorite, "Lebenspunkte", "${settings.hp} / ${settings.maxHp}"),
-                  _buildStatusRow(Icons.wc, "Geschlecht", settings.gender),
-                  _buildStatusRow(Icons.landscape, "Welt", settings.setting),
-                  _buildStatusRow(Icons.bolt, "Schwierigkeit", settings.difficulty),
-                  const SizedBox(height: 30),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8A6421), foregroundColor: const Color(0xFFF4EAD4), padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Zurück zum Abenteuer"),
-                  )
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 15,
+                  ),
                 ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "HELDEN-STATUS",
+                      style: TextStyle(
+                        color: Color(0xFF2D1E10),
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const Divider(
+                      color: Color(0xFF8A6421),
+                      thickness: 2,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildStatusRow(
+                      Icons.person,
+                      "Name",
+                      widget.settings.charName,
+                    ),
+                    _buildStatusRow(
+                      Icons.favorite,
+                      "Lebenspunkte",
+                      "${widget.settings.spieler.leben} / ${widget.settings.spieler.maxleben}",
+                    ),
+                    _buildStatusRow(
+                      Icons.battery_full,
+                      "Ausdauer",
+                      "${widget.settings.spieler.ausdauer} / ${widget.settings.spieler.maxausdauer}",
+                    ),
+                    _buildStatusRow(
+                      Icons.refresh,
+                      "Ausdauerregeneration",
+                      "${widget.settings.spieler.ausdauerregeneration}",
+                    ),
+                    _buildStatusRow(
+                      Icons.shield,
+                      "Verteidigung",
+                      "${widget.settings.spieler.verteidigung}",
+                    ),
+                    _buildStatusRow(
+                      Icons.bolt,
+                      "Geschwindigkeit",
+                      "${widget.settings.spieler.geschwindigkeit}",
+                    ),
+                    _buildStatusRow(
+                      Icons.sports_mma,
+                      "Stärke",
+                      "${widget.settings.spieler.staerke}",
+                    ),
+                    const SizedBox(height: 30),
+                    _buildAttackenListe(),
+                    const SizedBox(height: 30),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8A6421),
+                        foregroundColor: const Color(0xFFF4EAD4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 15,
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Zurück zum Abenteuer"),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1010,18 +1430,153 @@ class StatusScreen extends StatelessWidget {
         children: [
           Icon(icon, color: const Color(0xFF8A6421), size: 28),
           const SizedBox(width: 15),
-          Text("$label: ", style: const TextStyle(color: Color(0xFF5C4018), fontSize: 18, fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 20, fontWeight: FontWeight.w400, fontStyle: FontStyle.italic))),
+          Text(
+            "$label: ",
+            style: const TextStyle(
+              color: Color(0xFF5C4018),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFF2D1E10),
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildAttackenListe() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFF8A6421)),
+            SizedBox(width: 8),
+            Text(
+              "Attacken",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D1E10),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 220,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            border: Border.all(
+              color: const Color(0xFF8A6421),
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: widget.settings.spieler.attacken.alleAttacken.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Keine Attacken vorhanden",
+                    style: TextStyle(
+                      color: Color(0xFF2D1E10),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: widget.settings.spieler.attacken.alleAttacken.length,
+                  itemBuilder: (context, index) {
+                    final attacke = widget.settings.spieler.attacken.alleAttacken[index];
+
+                    return Card(
+                      color: const Color(0xFFF4EAD4),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          attacke.aoe
+                              ? Icons.blur_on
+                              : attacke.aufgegner
+                                  ? Icons.gps_fixed
+                                  : Icons.healing,
+                          color: const Color(0xFF8A6421),
+                        ),
+                        title: Text(
+                          attacke.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        subtitle: Text(
+                          "${attacke.beschreibung}\n"
+                          "Kraft: ${attacke.kraft}\n"
+                          "Ausdauer Kosten: ${attacke.kosten}",
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _attackeLoeschenDialog(index),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _attackeLoeschenDialog(int index) async {
+    final attacke = widget.settings.spieler.attacken.alleAttacken[index];
+
+    final bool? loeschen = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Attacke entfernen"),
+          content: Text(
+            'Möchtest du die Attacke "${attacke.name}" wirklich entfernen?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text("Nein"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text("Ja"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (loeschen == true) {
+      setState(() {
+        widget.settings.spieler.attacken.attackeLoeschen(index);
+      });
+    }
+  }
 }
 
 // --- INVENTAR SCREEN ---
-
 class InventoryScreen extends StatelessWidget {
-  final List<InventoryItem> inventory;
+  final ItemListe inventory;
   const InventoryScreen({super.key, required this.inventory});
 
   @override
@@ -1049,9 +1604,9 @@ class InventoryScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: inventory.length,
+                      itemCount: inventory.getAnzahl(),
                       itemBuilder: (context, index) {
-                        final item = inventory[index];
+                        final item = inventory.getItem(index);
                         return Container(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           decoration: BoxDecoration(
@@ -1062,15 +1617,36 @@ class InventoryScreen extends StatelessWidget {
                           child: ListTile(
                             leading: Container(
                               padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(color: const Color(0xFF2D1E10), borderRadius: BorderRadius.circular(6)),
-                              child: Icon(item.icon, color: item.iconColor, size: 28),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2D1E10), 
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: !item.aoe && !item.aufgegner
+                                        ? const Icon(Icons.healing, color: Colors.green, size: 28)
+                                        : item.aoe && item.aufgegner
+                                            ? const Icon(Icons.blur_on, color: Colors.purple, size: 28)
+                                            : !item.aoe && item.aufgegner
+                                                ? const Icon(Icons.gps_fixed, color: Colors.red, size: 28)
+                                                : const Icon(Icons.auto_awesome, color: Color(0xFFBA9355), size: 28),
                             ),
-                            title: Text(item.name, style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold)),
-                            subtitle: Text(item.description, style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic)),
+                            title: Text(
+                              item.name, 
+                              style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              item.beschreibung, 
+                              style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic),
+                            ),
                             trailing: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(color: const Color(0xFF8A6421), borderRadius: BorderRadius.circular(12)),
-                              child: Text("x${item.quantity}", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 16, fontWeight: FontWeight.bold)),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8A6421), 
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "Kraft: ${item.kraft}", 
+                                style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ),
                         );
@@ -1086,7 +1662,7 @@ class InventoryScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () => Navigator.pop(context),
-                    child: const Text("Sack schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text("Inventar schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -1122,65 +1698,6 @@ class GameMenuDetailScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// --- KAMPF SCREEN ---
-
-class CombatScreen extends StatelessWidget {
-  final String enemyName;
-  final int enemyHp;
-
-  const CombatScreen({
-    super.key, 
-    required this.enemyName, 
-    required this.enemyHp
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(child: Image.asset('assets/hintergrund_pergament.jpg', fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.black))),
-          Positioned.fill(child: Container(color: Colors.red.withValues(alpha: 0.3))), 
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.85,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D1E10),
-                border: Border.all(color: Colors.redAccent, width: 4),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.gavel, color: Colors.redAccent, size: 60),
-                  const SizedBox(height: 10),
-                  const Text("KAMPF GESTARTET!", style: TextStyle(color: Colors.redAccent, fontSize: 30, fontWeight: FontWeight.bold)),
-                  const Divider(color: Colors.red, thickness: 2),
-                  const SizedBox(height: 20),
-                  Text("Gegner: $enemyName", style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Text("Lebenspunkte: $enemyHp HP", style: const TextStyle(color: Colors.orangeAccent, fontSize: 18)),
-                  const SizedBox(height: 40),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15)
-                    ),
-                    onPressed: () => Navigator.pop(context), 
-                    child: const Text("Kampf beenden & Fliehen", style: TextStyle(fontSize: 16)),
-                  )
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
