@@ -1,0 +1,16 @@
+GRIDX 9 GRIDY 9
+. O O O O O O O .
+O F P P O F F F O
+O M P P F F F O O
+. F M P F O O O O
+. F P O P P O O O
+O O O O P F M O O
+. O O O O P M O O
+. M M O O O O O O
+O O O O O O O O O
+Legend:
+'P': Plains
+'F': Forest
+'O': Ocean
+'M': Mountains
+'.': Out of map

@@ -1,0 +1,37 @@
+GRIDX 20 GRIDY 30
+. . . . . . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . . . . . .
+. . . O O O O O O O O O O O O O O . . .
+. . O O P P P O O O O O O O O O O O . .
+. . O P P P P P O O P F F O O F F O . .
+. . P P P P P P P O F F F F F F F P . .
+. . F F F P P P P F F F F F F F F P . .
+. . O O P P P P F F F F F F F P P P . .
+. . O M M P . . . F F F F F F P O O . .
+. . F M P P P P F F F F F F F P O O . .
+. . F F F M P P P F P F F F F F O O . .
+. . F F M M M F P P O O O O O O O O . .
+. . F F M M P P P P P O O O O O O O . .
+. . F F P P P O P P P O O O O O O O . .
+. . F P P P O O P O O O P O O O O O . .
+. . P P P O O O P P P P . O O O O O . .
+. . O O P O O O O P P M M O O O O O . .
+. . O O O O O O O P P P M P O O O O . .
+. . O O O O O O O P P P P P P O O O . .
+. . O O O O O O O O P F P P M O O P . .
+. . O O O O O O O O P P P P M O O O . .
+. . O O O O O O O O O P P P O O O O . .
+. . P P O O O O O O O P P M O O O O . .
+. . P P P P P O O O O O O P O O O O . .
+. . P P P P O O O O O O O O O O O O . .
+. . P P M M M O O O O O O O O O O O . .
+. . O O O O O O O O O O O O O O O O . .
+. . . O O O O O O O O O O O O O O . . .
+. . . . . . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . . . . . .
+Legend:
+'P': Plains
+'F': Forest
+'O': Ocean
+'M': Mountains
+'.': Out of map

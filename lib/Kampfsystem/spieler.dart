@@ -41,21 +41,73 @@ class Spieler {
 
     // TODO: make dynamic and not hardcoded map
     this.map = 
-    '''GRIDX 6 GRIDY 4
-P F P F F P
-P P F F O O
-O O O P P O
-P P O O O O
+    '''GRIDX 20 GRIDY 30
+. . . . . . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . . . . . .
+. . . O O O O O O O O O O O O O O . . .
+. . O O P P P O O O O O O O O O O O . .
+. . O P P P P P O O P F F O O F F O . .
+. . P P P P P P P O F F F F F F F P . .
+. . F F F P P P P F F F F F F F F P . .
+. . O O P P P P F F F F F F F P P P . .
+. . O M M P . . . F F F F F F P O O . .
+. . F M P P P P F F F F F F F P O O . .
+. . F F F M P P P F P F F F F F O O . .
+. . F F M M M F P P O O O O O O O O . .
+. . F F M M P P P P P O O O O O O O . .
+. . F F P P P O P P P O O O O O O O . .
+. . F P P P O O P O O O P O O O O O . .
+. . P P P O O O P P P P . O O O O O . .
+. . O O P O O O O P P M M O O O O O . .
+. . O O O O O O O P P P M P O O O O . .
+. . O O O O O O O P P P P P P O O O . .
+. . O O O O O O O O P F P P M O O P . .
+. . O O O O O O O O P P P P M O O O . .
+. . O O O O O O O O O P P P O O O O . .
+. . P P O O O O O O O P P M O O O O . .
+. . P P P P P O O O O O O P O O O O . .
+. . P P P P O O O O O O O O O O O O . .
+. . P P M M M O O O O O O O O O O O . .
+. . O O O O O O O O O O O O O O O O . .
+. . . O O O O O O O O O O O O O O . . .
+. . . . . . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . . . . . .
 Legend:
 P: plains
 F: Forest
 O: Ocean
 M: Mountains''',
-    this.playerlocation = '''GRIDX 6 GRIDY 4
-P F P F F P
-P P F F O O
-O O O X P O
-P P O O O O
+    this.playerlocation = '''GRIDX 20 GRIDY 30
+. . . . . . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . . . . . .
+. . . O O O O O O O O O O O O O O . . .
+. . O O P P P O O O O O O O O O O O . .
+. . O P P P P P O O P F F O O F F O . .
+. . P P P P P P P O F F F F F F F P . .
+. . F F F P P P P F F F F F F F F P . .
+. . O O P P P P F F F F F F F P P P . .
+. . O M M P . . . F F F F F F P O O . .
+. . F M P P P P F F F F F F F P O O . .
+. . F F F M P P P F P F F F F F O O . .
+. . F F M M M F P P O O O O O O O O . .
+. . F F M M P P X P P O O O O O O O . .
+. . F F P P P O P P P O O O O O O O . .
+. . F P P P O O P O O O P O O O O O . .
+. . P P P O O O P P P P . O O O O O . .
+. . O O P O O O O P P M M O O O O O . .
+. . O O O O O O O P P P M P O O O O . .
+. . O O O O O O O P P P P P P O O O . .
+. . O O O O O O O O P F P P M O O P . .
+. . O O O O O O O O P P P P M O O O . .
+. . O O O O O O O O O P P P O O O O . .
+. . P P O O O O O O O P P M O O O O . .
+. . P P P P P O O O O O O P O O O O . .
+. . P P P P O O O O O O O O O O O O . .
+. . P P M M M O O O O O O O O O O O . .
+. . O O O O O O O O O O O O O O O O . .
+. . . O O O O O O O O O O O O O O . . .
+. . . . . . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . . . . . .
 Legend:
 'X': player'''
   });

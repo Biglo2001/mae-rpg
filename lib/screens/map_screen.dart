@@ -26,7 +26,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadMapGrid() async {
-    final String data = await DefaultAssetBundle.of(context).loadString('assets/map3.maegrid.txt');
+    final String data = await DefaultAssetBundle.of(context).loadString('assets/map3_large.maegrid.txt');
     setState(() {
       _mapGrid = MapGrid.parse(data);
     });
