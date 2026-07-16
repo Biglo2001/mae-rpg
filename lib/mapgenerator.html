@@ -273,6 +273,13 @@
         }
         lines.push(rowVals.join(' '));
       }
+      // append legend
+      lines.push(`Legend:
+'P': Plains
+'F': Forest
+'O': Ocean
+'M': Mountains
+'.': Out of map`);
       return lines.join('\n');
     }
 

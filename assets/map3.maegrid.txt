@@ -3,3 +3,9 @@ P F P F F P
 P P F F O O
 O O O P P O
 P P O O O O
+Legend:
+'P': Plains
+'F': Forest
+'O': Ocean
+'M': Mountains
+'.': Out of map
