@@ -48,6 +48,7 @@ class GameSettings {
   final String difficulty;
   final String setting;
   final bool usePredefinedAdventure;
+  final bool showTutorial; // Hinzugefügt
   Spieler spieler;
 
   GameSettings({
@@ -59,6 +60,7 @@ class GameSettings {
     required this.setting,
     required this.spieler,
     this.usePredefinedAdventure = false,
+    this.showTutorial = false, // Hinzugefügt
   });
 
   Map<String, dynamic> toJson() => {
@@ -70,6 +72,7 @@ class GameSettings {
         "setting": setting,
         "spieler": spieler.toJson(),
         "adventure_type": usePredefinedAdventure ? "Vorgegeben" : "Prozedural",
+        "show_tutorial": showTutorial, // Hinzugefügt
       };
 
   factory GameSettings.fromJson(Map<String, dynamic> json) {
@@ -82,6 +85,7 @@ class GameSettings {
       setting: json['setting'] ?? "Mittelalter",
       spieler: Spieler.fromJson(json['spieler']),
       usePredefinedAdventure: json['adventure_type'] == "Vorgegeben",
+      showTutorial: json['show_tutorial'] ?? false, // Hinzugefügt
     );
   }
 }
@@ -183,7 +187,6 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
 
   Future<void> _loadSaveGameList() async {
     final prefs = await SharedPreferences.getInstance();
-    // await prefs.clear(); //TODO Alte Speicherdaten Stimmen nicht mit der Neuen version überein. Bei auftretenden fehlern einmal Zeile entkommentieren --> App starten und Spiele Laden --> App schließen --> zeile zum Kommentar machen
     final keys = prefs.getKeys().where((key) => key.startsWith('savegame_'));
     
     List<Map<String, dynamic>> loadedSaves = [];
@@ -247,6 +250,7 @@ class _SaveGameListScreenState extends State<SaveGameListScreen> {
         setting: oldSettings.setting,
         spieler: oldSettings.spieler,
         usePredefinedAdventure: oldSettings.usePredefinedAdventure,
+        showTutorial: oldSettings.showTutorial,
       );
 
       final String introText = importedData['intro'] ?? "Abenteuer beginnt...";
@@ -397,6 +401,7 @@ class _SetupScreenState extends State<SetupScreen> {
   String _selectedSetting = 'Mittelalter';
 
   bool _isPredefined = false;
+  bool _showTutorial = false; // Hinzugefügt
 
   bool _apiKeyInvalid = false;
   bool _isCheckingApiKey = false;
@@ -512,6 +517,27 @@ class _SetupScreenState extends State<SetupScreen> {
                     ],
                   ),
 
+                  // Hinzugefügte Checkbox für das Tutorial
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _showTutorial,
+                        activeColor: const Color(0xFF8A6421),
+                        onChanged: (v) =>
+                            setState(() => _showTutorial = v!),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Test Tutorial aktivieren? (Empfohlen für Neulinge)",
+                          style: TextStyle(
+                            color: Color(0xFFF4EAD4),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 40),
 
                   Center(
@@ -586,6 +612,7 @@ class _SetupScreenState extends State<SetupScreen> {
                                 setting: _selectedSetting,
                                 usePredefinedAdventure:
                                     _isPredefined,
+                                showTutorial: _showTutorial, // Hinzugefügt
                                 spieler:
                                     StartInitialisierung
                                         .erstelleSpieler(
@@ -799,7 +826,6 @@ class _ChatScreenState extends State<ChatScreen> {
   late Chatbot cb;
   
   late List<ChatMessage> _messages;
- // late List<InventoryItem> _inventory;
   bool _isLoading = false;
 
   @override
@@ -810,13 +836,27 @@ class _ChatScreenState extends State<ChatScreen> {
      _loadFromInitialData();
     } else {
       _messages = [ChatMessage(text: _generateIntroText(), isUser: false)];
-      //_initInventory();
       _saveGame(); 
     }
   }
 
-  // Dynamischer Intro-Text basierend auf dem Welt-Setting und Abenteuer vorgegeben
+  // Dynamischer Intro-Text oder Tutorial-Inhalt beim Spielstart
   String _generateIntroText() {
+    // Wenn das Tutorial aktiv ist, zeige die statische Erklärung an, um Tokens zu sparen!
+    if (widget.settings.showTutorial) {
+      return '''📜 WILLKOMMEN IM ABENTEUER! 📜
+
+Da du neu in der Welt der Textadventures bist, hier die wichtigsten Grundlagen:
+
+1. FREIE EINGABE: Du kannst der KI in das Textfeld unten ALLES schreiben, was du tun möchtest. Es gibt keine falschen Antworten! (z.B. "Ich untersuche die Truhe", "Ich ziehe mein Schwert und laufe weg").
+2. KAMPF & GEGENSTÄNDE: Wenn du Items oder Fähigkeiten nutzt, verrechnet das Spiel deren Kraft direkt.
+3. DIE WELT REAGIERT: Die KI wird auf jede deiner Aktionen individuell antworten und die Story vorantreiben.
+
+Tipp für den Start: Schau dich zuerst genau um oder sprich mit Personen in deiner Nähe. 
+
+Schreibe deine erste Aktion in das Textfeld, um das Abenteuer zu beginnen!''';
+    }
+
     String name = widget.settings.charName;
     String anrede = widget.settings.gender == 'Männlich' ? 'Abenteurer' : (widget.settings.gender == 'Weiblich' ? 'Abenteurerin' : 'Wanderer');
 
@@ -824,7 +864,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (widget.settings.setting == 'Sci-Fi') {
         return "Systeme online... Seid gegrüßt, $anrede $name. Ihr erwacht aus dem Kryoschlaf auf der Orbitalstation 'Aegis-IV'. Die Notbeleuchtung flackert rot und dichte Rauchschwaden ziehen durch die Gänge. Euer primäres Ziel ist es, die Brücke zu erreichen, das unbekannte Alien-Notsignal zu entschlüsseln und die Kernreaktoren zu stabilisieren, bevor die Station in die Atmosphäre stürzt. Was tut ihr?";
       } else if (widget.settings.setting == 'Piraten') {
-        return "Ahoi, $anrede $name! Die Gischt peitscht euch ins Gesicht, als ihr in einer schummrigen Spelunke im Hafen von Tortuga sitzt. Vor euch liegt eine vergilbte Pergamentkarte, die den Weg zur sagenumwobenen 'Insel der verlorenen Seelen' weist. Euer Ziel ist es, eine Crew anzuheuern, die Blockade der königlichen Marine zu durchbrechen und das verfluchte Azteken-Gold zu bergen. Was tut ihr?";
+        return "Ahoi, $anrede $name! Die Gischt peitscht euch ins Gesicht, als ihr in einer schummrigen Spelunke im Hafen von Tortuga sitsen. Vor euch liegt eine vergilbte Pergamentkarte, die den Weg zur sagenumwobenen 'Insel der verlorenen Seelen' weist. Euer Ziel ist es, eine Crew anzuheuern, die Blockade der königlichen Marine zu durchbrechen und das verfluchte Azteken-Gold zu bergen. Was tut ihr?";
       } else {
         // Standard: Mittelalter
         return "Seid gegrüßt, $anrede $name. Ein dichter Nebel liegt über dem Düsterwald, als ihr vor den massiven, moosbewachsenen Toren der vergessenen Festung 'Eisengrab' steht. Legenden besagen, dass tief in den Katakomben das entwendete Sonnen-Relikt eures Ordens ruht. Euer Ziel ist es, unbemerkt einzudringen, die Wachen zu umgehen oder zu bezwingen und das Relikt zu sichern. Was tut ihr?";
@@ -852,12 +892,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _saveGame() async {
     final prefs = await SharedPreferences.getInstance();
     List<Map<String, dynamic>> chatJson = _messages.map((msg) => {'text': msg.text, 'isUser': msg.isUser}).toList();
-    //List<Map<String, dynamic>> inventoryJson = _inventory.map((item) => {'name': item.name, 'description': item.description, 'quantity': item.quantity}).toList();
 
     Map<String, dynamic> gameState = {
       'settings': widget.settings.toJson(),
       'chat': chatJson,
-     // 'inventory': inventoryJson,
     };
 
     await prefs.setString('savegame_${widget.settings.id}', jsonEncode(gameState));
@@ -1000,7 +1038,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (idx != 999) {
             Item i = widget.settings.spieler.items.getItem(idx);
 
-            //wenn das item ein Heilgegenstand ist heile den Spieler
+            // wenn das item ein Heilgegenstand ist heile den Spieler
             if(i.aoe == false && i.aufgegner == false) {
               if( widget.settings.spieler.leben + (i.kraft*widget.settings.spieler.staerke).round() > widget.settings.spieler.maxleben) {
                 widget.settings.spieler.leben =  widget.settings.spieler.maxleben;
@@ -1012,7 +1050,7 @@ class _ChatScreenState extends State<ChatScreen> {
             cleanAnswer += "\n\n❤️ [Leben durch $name wiederhergestellt]";
             widget.settings.spieler.items.entferenItem(i); 
           } else {
-            cleanAnswer += "\n\n\u2764\uFE0F [Gegenstand befindet sich nicht im Inventar: $name]";
+            cleanAnswer += "\n\n❤️ [Gegenstand befindet sich nicht im Inventar: $name]";
           }
         });
       } catch (_) {}
@@ -1094,7 +1132,7 @@ class _ChatScreenState extends State<ChatScreen> {
       setState((){ _messages.add(ChatMessage(text: "Die Tinte schreibt...", isUser: false)); _isLoading = true;});
       _scrollToBottom();
 
-      //Kampfausgang massage
+      // Kampfausgang Nachricht holen
       String msg = await _fetchAfterBattleResponse(kampfAusgang);
       setState(() {
         _messages[afterBattleloadingIndex] = ChatMessage(text: msg, isUser: false);
@@ -1561,75 +1599,72 @@ class InventoryScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-  const Text("BEUTEL & INVENTAR", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 10, endIndent: 10),
-  const SizedBox(height: 10),
-  Expanded(
-    child: ListView.builder(
-      itemCount: inventory.getAnzahl(),
-      itemBuilder: (context, index) {
-        final item = inventory.getItem(index);
-        return Container(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEFE3C3),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFBA9355).withValues(alpha: 0.5), width: 1.5),
-          ),
-          child: ListTile(
-            // Ein festes, atmosphärisches Icon passend für ein RPG-Item
-            leading: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D1E10), 
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: !item.aoe && !item.aufgegner
-                        ? const Icon(Icons.healing, color: Colors.green, size: 28)
-                        : item.aoe && item.aufgegner
-                            ? const Icon(Icons.blur_on, color: Colors.purple, size: 28)
-                            : !item.aoe && item.aufgegner
-                                ? const Icon(Icons.gps_fixed, color: Colors.red, size: 28)
-                                : const Icon(Icons.auto_awesome, color: Color(0xFFBA9355), size: 28),
-            ),
-            title: Text(
-              item.name, 
-              style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            // "item.beschreibung" statt "item.description" passend zu deiner Modell-Klasse
-            subtitle: Text(
-              item.beschreibung, 
-              style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic),
-            ),
-            // Optional: Zeigt die Kraft des Items auf der rechten Seite an
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8A6421), 
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                "Kraft: ${item.kraft}", 
-                style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        );
-      },
-    ),
-  ),
-  const SizedBox(height: 15),
-  ElevatedButton(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF8A6421),
-      foregroundColor: const Color(0xFFF4EAD4),
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ),
-    onPressed: () => Navigator.pop(context),
-    child: const Text("Inventar schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-  ),
-],
+                  const Text("BEUTEL & INVENTAR", style: TextStyle(color: Color(0xFF2D1E10), fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                  const Divider(color: Color(0xFF8A6421), thickness: 2, indent: 10, endIndent: 10),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: inventory.getAnzahl(),
+                      itemBuilder: (context, index) {
+                        final item = inventory.getItem(index);
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFE3C3),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFBA9355).withValues(alpha: 0.5), width: 1.5),
+                          ),
+                          child: ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2D1E10), 
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: !item.aoe && !item.aufgegner
+                                        ? const Icon(Icons.healing, color: Colors.green, size: 28)
+                                        : item.aoe && item.aufgegner
+                                            ? const Icon(Icons.blur_on, color: Colors.purple, size: 28)
+                                            : !item.aoe && item.aufgegner
+                                                ? const Icon(Icons.gps_fixed, color: Colors.red, size: 28)
+                                                : const Icon(Icons.auto_awesome, color: Color(0xFFBA9355), size: 28),
+                            ),
+                            title: Text(
+                              item.name, 
+                              style: const TextStyle(color: Color(0xFF2D1E10), fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              item.beschreibung, 
+                              style: const TextStyle(color: Color(0xFF5C4018), fontSize: 13, fontStyle: FontStyle.italic),
+                            ),
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8A6421), 
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "Kraft: ${item.kraft}", 
+                                style: const TextStyle(color: Color(0xFFF4EAD4), fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8A6421),
+                      foregroundColor: const Color(0xFFF4EAD4),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Inventar schließen", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
             ),
           ),
