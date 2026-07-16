@@ -61,6 +61,8 @@ flutter:
   assets:
     - assets/hintergrund.jpg
     - assets/map_1.png
+    - assets/map3.png
+    - assets/map3.maegrid.txt
     - assets/hintergrund_pergament.jpg
     - assets/hintergrund_landschaft.jpg
   # To add assets to your application, add an assets section, like this:

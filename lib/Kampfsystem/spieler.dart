@@ -20,6 +20,9 @@ class Spieler {
   int bisturn;
   bool verteidigt;
 
+  String map;
+  String playerlocation;
+
   Spieler({
     required this.name,
     required this.beschreibung,
@@ -35,6 +38,26 @@ class Spieler {
     required this.staerke,
     this.bisturn = 200,
     this.verteidigt = false,
+
+    // TODO: make dynamic and not hardcoded map
+    this.map = 
+    '''GRIDX 6 GRIDY 4
+P F P F F P
+P P F F O O
+O O O P P O
+P P O O O O
+Legend:
+P: plains
+F: Forest
+O: Ocean
+M: Mountains''',
+    this.playerlocation = '''GRIDX 6 GRIDY 4
+P F P F F P
+P P F F O O
+O O O X P O
+P P O O O O
+Legend:
+'X': player'''
   });
 
   void regenerierAusdauer() {
@@ -62,6 +85,8 @@ class Spieler {
   
       'attacken': attacken.toJson()['attacken'],
       'items': items.toJson(),
+      'map': map,
+      'playerlocation': playerlocation,
 
       /*
       // Attacken
@@ -101,6 +126,8 @@ class Spieler {
 
       attacken: AttackenListe.fromJson(json['attacken']),
       items: ItemListe.fromJson(json['items']),
+      map: json['map'],
+      playerlocation: json['playerlocation'],
 
     );
   }

@@ -905,6 +905,8 @@ Tipp für den Start: Schau dich zuerst genau um. Schreibe deine erste Aktion in 
     final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${widget.settings.apiKey.trim()}');
     
     final invList = widget.settings.spieler.items.toJson();
+    final map = widget.settings.spieler.map;
+    final playerlocation = widget.settings.spieler.playerlocation;
     final chatHistory = _messages.length > 10 
         ? _messages.sublist(_messages.length - 10).map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n")
         : _messages.map((m) => "${m.isUser ? 'Spieler' : 'Game Master'}: ${m.text}").join("\n");
@@ -912,6 +914,8 @@ Tipp für den Start: Schau dich zuerst genau um. Schreibe deine erste Aktion in 
     final systemInstruction = """
       Du bist der Game Master eines interaktiven RPGs. Welt-Setting: ${widget.settings.setting}.
       Aktuelles Inventar des Spielers: [$invList]. Aktuelle HP: ${widget.settings.spieler.leben}/${widget.settings.spieler.maxleben}.
+      Unveränderliche Karte des Spiels: [$map].
+      Veränderliche Spielerposition markiert auf der Karte mit einem X: [$playerlocation].
 
       Deine Aufgaben:
       1. Erschaffe eine Kampagne mit einem roten Faden (3-5 Orte).
