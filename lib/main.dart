@@ -840,7 +840,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Dynamischer Intro-Text oder Tutorial-Inhalt beim Spielstart
+// Dynamischer Intro-Text oder Tutorial-Inhalt beim Spielstart
   String _generateIntroText() {
     // Wenn das Tutorial aktiv ist, zeige die statische Erklärung an, um Tokens zu sparen!
     if (widget.settings.showTutorial) {
@@ -848,13 +848,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
 Da du neu in der Welt der Textadventures bist, hier die wichtigsten Grundlagen:
 
-1. FREIE EINGABE: Du kannst der KI in das Textfeld unten ALLES schreiben, was du tun möchtest. Es gibt keine falschen Antworten! (z.B. "Ich untersuche die Truhe", "Ich ziehe mein Schwert und laufe weg").
-2. KAMPF & GEGENSTÄNDE: Wenn du Items oder Fähigkeiten nutzt, verrechnet das Spiel deren Kraft direkt.
-3. DIE WELT REAGIERT: Die KI wird auf jede deiner Aktionen individuell antworten und die Story vorantreiben.
+1. FREIE INTERAKTION: Du kannst im Textfeld unten völlig frei beschreiben, was du tun möchtest (z.B. "Ich untersuche die Truhe" oder "Ich spreche mit dem Wirt"). Die KI reagiert dynamisch darauf!
 
-Tipp für den Start: Schau dich zuerst genau um oder sprich mit Personen in deiner Nähe. 
+2. GEGENSTÄNDE NUTZEN: Wenn du ein Item aus deinem Inventar nutzen möchtest, schreibe das einfach direkt in deine Aktion – zum Beispiel: "Ich trinke den Heiltrank" oder "Ich benutze [Item-Name]". Das Spiel erkennt dies und verrechnet die Effekte automatisch mit deinen Statuswerten.
 
-Schreibe deine erste Aktion in das Textfeld, um das Abenteuer zu beginnen!''';
+3. KAMPFSYSTEM: Sobald du auf einen Gegner triffst und ein Kampf unvermeidbar wird, wechselt das Spiel automatisch vom Chat-Modus in einen taktischen Kampfbildschirm. Dort bestreitest du das Gefecht rundenbasiert, bis du siegreich bist oder fliehen kannst.
+
+Tipp für den Start: Schau dich zuerst genau um. Schreibe deine erste Aktion in das Textfeld, um deine Reise zu beginnen!''';
     }
 
     String name = widget.settings.charName;
